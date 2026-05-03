@@ -1,0 +1,26 @@
+{
+  "version": "0.1.0",
+  "hostname": "silent-reef",
+  "user": "deck",
+  "profiles": [],
+  "timezone": "UTC",
+  "editor": "nano",
+  "theme": {
+    "name": "cyberpunk",
+    "prompt_color": "green"
+  },
+  "ssh": {
+    "enabled": false,
+    "port": 8022
+  },
+  "gemini": {
+    "enabled": false,
+    "api_key": ""
+  },
+  "motd": {
+    "quotes_enabled": true
+  },
+  "deck": {
+    "tools": ["decklocate","deckclock","deckping","decksniff","deckid","deckbat","deckwifi"]
+  }
+}

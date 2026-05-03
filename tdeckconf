@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""TermuxDeck config manager — tdeckconf"""
+import json, sys, os, pathlib
+
+CFG = pathlib.Path.home() / ".termuxdeck" / "config.json"
+SCHEMA_TYPES = {
+    "ssh.enabled": bool, "ssh.port": int,
+    "gemini.enabled": bool,
+    "motd.quotes_enabled": bool,
+}
+
+def load():
+    with open(CFG) as f:
+        return json.load(f)
+
+def save(cfg):
+    with open(CFG, "w") as f:
+        json.dump(cfg, f, indent=2)
+
+def get_nested(d, key):
+    parts = key.split(".")
+    v = d
+    for p in parts:
+        if isinstance(v, dict):
+            v = v.get(p)
+        else:
+            return None
+    return v
+
+def set_nested(d, key, value):
+    parts = key.split(".")
+    v = d
+    for p in parts[:-1]:
+        v = v.setdefault(p, {})
+    # Type coercion
+    if key in SCHEMA_TYPES:
+        t = SCHEMA_TYPES[key]
+        if t == bool:
+            value = value.lower() in ("true", "1", "yes")
+        elif t == int:
+            value = int(value)
+    v[parts[-1]] = value
+
+def cmd_get(args):
+    if not args:
+        print("Usage: tdeckconf get <key>"); sys.exit(1)
+    val = get_nested(load(), args[0])
+    if val is None:
+        print(f"Key not found: {args[0]}"); sys.exit(1)
+    print(val)
+
+def cmd_set(args):
+    if len(args) < 2:
+        print("Usage: tdeckconf set <key> <value>"); sys.exit(1)
+    cfg = load()
+    set_nested(cfg, args[0], args[1])
+    save(cfg)
+    print(f"✓ {args[0]} = {args[1]}")
+
+def cmd_list(args):
+    def flatten(d, prefix=""):
+        for k, v in d.items():
+            full = f"{prefix}.{k}" if prefix else k
+            if isinstance(v, dict):
+                yield from flatten(v, full)
+            else:
+                yield full, v
+    for k, v in flatten(load()):
+        print(f"{k:<30} {v}")
+
+def cmd_validate(args):
+    cfg = load()
+    required = ["version", "hostname", "user", "profiles", "theme", "ssh", "gemini"]
+    errors = [k for k in required if k not in cfg]
+    if errors:
+        print(f"✗ Missing keys: {', '.join(errors)}"); sys.exit(1)
+    print("✓ config.json is valid")
+
+def cmd_reset(args):
+    confirm = input("This will overwrite config.json with defaults. Type 'yes' to confirm: ")
+    if confirm.strip().lower() != "yes":
+        print("Aborted.")
+        return
+    os.system(f"bash {pathlib.Path.home()}/.termuxdeck/../termuxdeck/install.sh --config-only")
+    print("Reset complete.")
+
+CMDS = {"get": cmd_get, "set": cmd_set, "list": cmd_list, "validate": cmd_validate, "reset": cmd_reset}
+
+if __name__ == "__main__":
+    args = sys.argv[1:]
+    if not args or args[0] not in CMDS:
+        print("Usage: tdeckconf <get|set|list|validate|reset> [args...]")
+        print("Commands:")
+        for c in CMDS:
+            print(f"  {c}")
+        sys.exit(1)
+    CMDS[args[0]](args[1:])

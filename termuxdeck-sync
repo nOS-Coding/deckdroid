@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""termuxdeck-sync — Git-backed synchronization for TermuxDeck OS"""
+import os
+import sys
+import subprocess
+import pathlib
+import json
+
+TDECK_DIR = pathlib.Path.home() / ".termuxdeck"
+CONFIG_FILE = TDECK_DIR / "config.json"
+IGNORE_FILE = TDECK_DIR / ".termuxdeckignore"
+
+def run_git(args, cwd=TDECK_DIR):
+    try:
+        result = subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True)
+        return result
+    except FileNotFoundError:
+        print("Error: git is not installed.")
+        sys.exit(1)
+
+def init_sync(repo_url):
+    if not TDECK_DIR.exists():
+        TDECK_DIR.mkdir(parents=True, exist_ok=True)
+    
+    if not (TDECK_DIR / ".git").exists():
+        print(f"Initializing git repo in {TDECK_DIR}...")
+        run_git(["init"])
+    
+    # Create default .termuxdeckignore if it doesn't exist
+    if not IGNORE_FILE.exists():
+        with open(IGNORE_FILE, "w") as f:
+            f.writelines([
+                "logs/\n",
+                "ssh/host_key*\n",
+                ".git/\n",
+                "*.log\n"
+            ])
+    
+    print(f"Adding remote origin {repo_url}...")
+    run_git(["remote", "add", "origin", repo_url])
+    print("Sync initialized. You can now use 'push' or 'pull'.")
+
+def push_sync():
+    print("Syncing local changes to remote...")
+    run_git(["add", "."])
+    msg = f"Sync from {get_hostname()}"
+    run_git(["commit", "-m", msg])
+    res = run_git(["push", "origin", "main"])
+    if res.returncode == 0:
+        print("✓ Push successful.")
+    else:
+        print(f"✗ Push failed: {res.stderr}")
+
+def pull_sync():
+    print("Fetching changes from remote...")
+    res = run_git(["pull", "origin", "main"])
+    if res.returncode == 0:
+        print("✓ Pull successful.")
+    else:
+        print(f"✗ Pull failed: {res.stderr}")
+
+def get_hostname():
+    try:
+        with open(CONFIG_FILE, "r") as f:
+            config = json.load(f)
+            return config.get("hostname", "unknown-device")
+    except Exception:
+        return "unknown-device"
+
+def usage():
+    print("Usage: termuxdeck-sync <command> [args]")
+    print("Commands:")
+    print("  init <repo-url>   Initialize sync with a remote git repo")
+    print("  push              Push local config to remote")
+    print("  pull              Pull remote config to local")
+    sys.exit(1)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        usage()
+    
+    cmd = sys.argv[1]
+    if cmd == "init":
+        if len(sys.argv) < 3:
+            print("Error: Missing repo URL.")
+            usage()
+        init_sync(sys.argv[2])
+    elif cmd == "push":
+        push_sync()
+    elif cmd == "pull":
+        pull_sync()
+    else:
+        usage()

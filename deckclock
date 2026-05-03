@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+"""deckclock — Multi-timezone clock + NTP check"""
+import datetime, subprocess, sys, json
+
+JSON_OUT = "--json" in sys.argv
+
+ZONES = [
+    ("Local",    None),
+    ("UTC",      "UTC"),
+    ("New York", "America/New_York"),
+    ("London",   "Europe/London"),
+    ("Tokyo",    "Asia/Tokyo"),
+]
+
+GREEN = "\033[0;32m"; CYAN = "\033[0;36m"; RESET = "\033[0m"; BOLD = "\033[1m"
+
+try:
+    from zoneinfo import ZoneInfo
+    HAS_ZONES = True
+except ImportError:
+    try:
+        from backports.zoneinfo import ZoneInfo
+        HAS_ZONES = True
+    except ImportError:
+        HAS_ZONES = False
+
+now_utc = datetime.datetime.now(datetime.timezone.utc)
+times = {}
+
+for label, tz in ZONES:
+    if HAS_ZONES and tz:
+        try:
+            t = now_utc.astimezone(ZoneInfo(tz))
+            times[label] = t.strftime("%Y-%m-%d %H:%M:%S %Z")
+        except Exception:
+            times[label] = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
+    elif tz is None:
+        times[label] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        times[label] = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+# NTP sync check
+ntp_ok = False
+try:
+    r = subprocess.run(["timedatectl", "show", "--property=NTPSynchronized"], capture_output=True, text=True)
+    ntp_ok = "yes" in r.stdout.lower()
+except Exception:
+    pass
+
+if JSON_OUT:
+    print(json.dumps({"times": times, "ntp_synchronized": ntp_ok}, indent=2))
+else:
+    print(f"\n{BOLD}deckclock — World Clock{RESET}")
+    for label, t in times.items():
+        print(f"  {CYAN}{label:<12}{RESET} {t}")
+    ntp_str = f"{GREEN}synced{RESET}" if ntp_ok else f"\033[0;33munsync'd{RESET}"
+    print(f"\n  NTP: {ntp_str}\n")

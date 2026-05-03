@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""TermuxDeck OS — System health utility"""
+import os, sys, json, shutil, pathlib, subprocess
+
+HOME = pathlib.Path.home()
+TDECK = HOME / ".termuxdeck"
+CFG_PATH = TDECK / "config.json"
+GREEN = "\033[0;32m"; YELLOW = "\033[1;33m"; RED = "\033[0;31m"; RESET = "\033[0m"; BOLD = "\033[1m"
+
+ok   = lambda s: print(f"  {GREEN}✓{RESET} {s}")
+warn = lambda s: print(f"  {YELLOW}⚠{RESET} {s}")
+fail = lambda s: print(f"  {RED}✗{RESET} {s}")
+
+def check(label, condition, warn_msg=None, fix=None):
+    if condition:
+        ok(label)
+        return True
+    else:
+        (warn if warn_msg else fail)(warn_msg or label)
+        return False
+
+print(f"\n{BOLD}TermuxDeck OS — Doctor{RESET}\n{'─'*40}")
+
+# Config
+print(f"\n{BOLD}Configuration{RESET}")
+cfg_ok = CFG_PATH.exists()
+check("config.json exists", cfg_ok, "config.json missing — run installer")
+if cfg_ok:
+    try:
+        cfg = json.loads(CFG_PATH.read_text())
+        check("config.json is valid JSON", True)
+        for key in ["version", "hostname", "profiles", "theme"]:
+            check(f"  config.{key} present", key in cfg, f"config.{key} missing")
+    except json.JSONDecodeError as e:
+        fail(f"config.json invalid JSON: {e}")
+
+# Shell
+print(f"\n{BOLD}Shell{RESET}")
+check("zsh installed",      shutil.which("zsh") is not None,    "zsh not found — run: pkg install zsh")
+check("starship installed",  shutil.which("starship") is not None, "starship not found — run: pkg install starship")
+check("fastfetch installed", shutil.which("fastfetch") is not None,"fastfetch not found — run: pkg install fastfetch")
+check(".zshrc exists",       (HOME / ".zshrc").exists(),          "~/.zshrc missing")
+check("zinit installed",     (HOME / ".zinit/bin/zinit.zsh").exists(), "zinit missing — zsh plugins unavailable")
+
+# Runtimes
+print(f"\n{BOLD}Runtimes{RESET}")
+check("python3 installed", shutil.which("python3") is not None, "python3 not found — run: pkg install python")
+check("node installed",    shutil.which("node") is not None,    "node not found — run: pkg install nodejs")
+check("nano installed",    shutil.which("nano") is not None,    "nano not found — run: pkg install nano")
+
+# Termux:API
+print(f"\n{BOLD}Termux:API{RESET}")
+check("termux-battery-status available", shutil.which("termux-battery-status") is not None,
+      "termux-api not installed — deck tools will degrade gracefully")
+
+# Storage budget
+print(f"\n{BOLD}Storage Budget (500 MB limit){RESET}")
+try:
+    result = subprocess.run(["df", str(HOME)], capture_output=True, text=True)
+    parts = result.stdout.strip().split("\n")[-1].split()
+    used_kb = int(parts[2])
+    used_mb = used_kb // 1024
+    avail_kb = int(parts[3])
+    avail_mb = avail_kb // 1024
+    if used_mb < 450:
+        ok(f"Storage used: {used_mb} MB / 500 MB budget")
+    else:
+        warn(f"Storage used: {used_mb} MB — approaching 500 MB budget ({avail_mb} MB free)")
+except Exception:
+    warn("Could not determine storage usage")
+
+# RAM
+print(f"\n{BOLD}Memory{RESET}")
+try:
+    with open("/proc/meminfo") as f:
+        meminfo = {line.split(":")[0]: int(line.split()[1]) for line in f if ":" in line}
+    total_mb = meminfo.get("MemTotal", 0) // 1024
+    free_mb  = meminfo.get("MemAvailable", 0) // 1024
+    if total_mb >= 1024:
+        ok(f"RAM: {total_mb} MB total, {free_mb} MB available")
+    else:
+        warn(f"RAM: {total_mb} MB total (minimum is 1024 MB)")
+    if free_mb < 200:
+        warn(f"Free RAM low: {free_mb} MB")
+except Exception:
+    warn("Could not read /proc/meminfo")
+
+# Deck tools
+print(f"\n{BOLD}Deck Tools{RESET}")
+tools = ["deckbat","deckping","deckid","deckwifi","decklocate","deckclock","decksniff","decknote","tdeckconf"]
+for t in tools:
+    check(f"{t}", shutil.which(t) is not None, f"{t} not in PATH")
+
+# SSH
+print(f"\n{BOLD}SSH{RESET}")
+if cfg_ok:
+    ssh_enabled = cfg.get("ssh", {}).get("enabled", False)
+    if ssh_enabled:
+        sshd_ok = shutil.which("sshd") is not None
+        check("sshd available", sshd_ok, "sshd not found — run: pkg install openssh")
+    else:
+        ok("SSH disabled in config")
+
+print(f"\n{'─'*40}")
+print(f"{BOLD}Run 'termuxdeck-doctor --fix' to auto-repair common issues.{RESET}\n")

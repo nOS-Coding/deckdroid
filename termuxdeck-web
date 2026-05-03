@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""termuxdeck-web — Local web dashboard for TermuxDeck OS"""
+import http.server
+import socketserver
+import json
+import os
+import pathlib
+import subprocess
+
+PORT = 8080
+TDECK_DIR = pathlib.Path.home() / ".termuxdeck"
+CONFIG_FILE = TDECK_DIR / "config.json"
+
+class DashboardHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/":
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            
+            # Get stats
+            hostname = self.get_config().get("hostname", "TermuxDeck")
+            battery = self.run_tool("deckbat", "--json")
+            wifi = self.run_tool("deckwifi", "--json")
+            
+            html = f"""
+            <html>
+            <head>
+                <title>{hostname} Dashboard</title>
+                <style>
+                    body {{ font-family: monospace; background: #000; color: #0f0; padding: 20px; }}
+                    h1 {{ border-bottom: 1px solid #0f0; }}
+                    .card {{ border: 1px solid #0f0; padding: 15px; margin: 10px 0; }}
+                    pre {{ color: #0cf; }}
+                </style>
+            </head>
+            <body>
+                <h1>TermuxDeck OS Dashboard — {hostname}</h1>
+                <div class="card">
+                    <h2>Battery Status</h2>
+                    <pre>{json.dumps(battery, indent=2)}</pre>
+                </div>
+                <div class="card">
+                    <h2>WiFi Networks</h2>
+                    <pre>{json.dumps(wifi, indent=2)}</pre>
+                </div>
+                <div class="card">
+                    <h2>System Info</h2>
+                    <pre>{subprocess.getoutput("uname -a")}</pre>
+                </div>
+            </body>
+            </html>
+            """
+            self.wfile.write(html.encode())
+        else:
+            self.send_error(404, "Not Found")
+
+    def get_config(self):
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return {}
+
+    def run_tool(self, tool, *args):
+        try:
+            # Try local tools directory first, then system path
+            tool_path = TDECK_DIR / "tools" / tool
+            if tool_path.exists():
+                cmd = [sys.executable, str(tool_path)] if tool_path.suffix == ".py" or open(tool_path, "r").read(2) == "#!" else [str(tool_path)]
+            else:
+                cmd = [tool]
+            
+            result = subprocess.run(cmd + list(args), capture_output=True, text=True, timeout=5)
+            return json.loads(result.stdout)
+        except Exception as e:
+            return {"error": f"Could not run {tool}: {str(e)}"}
+
+if __name__ == "__main__":
+    import sys
+    print(f"Starting TermuxDeck Web Dashboard on http://localhost:{PORT}")
+    with socketserver.TCPServer(("", PORT), DashboardHandler) as httpd:
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("\nStopping server...")
+            sys.exit(0)

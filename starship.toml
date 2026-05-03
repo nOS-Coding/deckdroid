@@ -1,0 +1,48 @@
+# TermuxDeck OS — Starship prompt config (cyberpunk theme)
+add_newline = false
+command_timeout = 500
+
+format = """
+[╭─](bold green)[$username](bold green)[@](green)[$hostname](bold cyan) [$directory](bold white)[$git_branch](bold yellow)[$git_status](yellow)
+[╰─❯](bold green) """
+
+[username]
+show_always = true
+style_user = "bold green"
+style_root = "bold red"
+format = "[$user]($style)"
+
+[hostname]
+ssh_only = false
+style = "bold cyan"
+format = "[$hostname]($style)"
+
+[directory]
+truncation_length = 3
+truncate_to_repo = true
+style = "bold white"
+format = "[$path]($style) "
+
+[git_branch]
+style = "bold yellow"
+format = "on [$symbol$branch]($style) "
+
+[git_status]
+style = "yellow"
+format = "([$all_status$ahead_behind]($style)) "
+
+[battery]
+full_symbol = "🔋"
+charging_symbol = "⚡"
+discharging_symbol = "💀"
+[[battery.display]]
+threshold = 30
+style = "bold red"
+[[battery.display]]
+threshold = 100
+style = "green"
+
+[python]
+format = "via [🐍 $version]($style) "
+[nodejs]
+format = "via [⬢ $version]($style) "

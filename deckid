@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+"""deckid — Device identity summary"""
+import socket, subprocess, sys, json, os
+
+JSON_OUT = "--json" in sys.argv
+GREEN = "\033[0;32m"; CYAN = "\033[0;36m"; RESET = "\033[0m"; BOLD = "\033[1m"
+
+def run(cmd):
+    try:
+        return subprocess.check_output(cmd, stderr=subprocess.DEVNULL, text=True).strip()
+    except Exception:
+        return "unavailable"
+
+def get_termux_prop(prop):
+    return run(["termux-telephony-deviceinfo"]) if prop == "imei" else "unavailable"
+
+hostname = socket.gethostname()
+arch = run(["uname", "-m"])
+kernel = run(["uname", "-r"])
+
+# Try termux-wifi-connectioninfo for local IP
+local_ip = "unavailable"
+try:
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    local_ip = s.getsockname()[0]
+    s.close()
+except Exception:
+    pass
+
+# Public IP via curl (optional, may fail offline)
+public_ip = "unavailable"
+try:
+    public_ip = subprocess.check_output(["curl", "-s", "--max-time", "3", "ifconfig.me"], text=True).strip()
+except Exception:
+    pass
+
+# Android ID via termux-telephony-deviceinfo
+android_id = "unavailable"
+try:
+    info = json.loads(subprocess.check_output(["termux-telephony-deviceinfo"], timeout=5, text=True))
+    android_id = info.get("device_id", "unavailable")
+except Exception:
+    pass
+
+data = {
+    "hostname": hostname, "arch": arch, "kernel": kernel,
+    "local_ip": local_ip, "public_ip": public_ip, "android_id": android_id,
+}
+
+if JSON_OUT:
+    print(json.dumps(data, indent=2))
+else:
+    print(f"\n{BOLD}deckid — Device Identity{RESET}")
+    for k, v in data.items():
+        print(f"  {CYAN}{k:<14}{RESET} {v}")
+    print()

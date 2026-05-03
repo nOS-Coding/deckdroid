@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# decksniff — tcpdump wrapper with preset capture profiles
+# Usage: decksniff [http|dns|arp|all] [-i <iface>] [--log]
+set -euo pipefail
+
+PROFILE="${1:-all}"
+IFACE="${IFACE:-any}"
+LOG_DIR="$HOME/.termuxdeck/logs"
+LOG="$LOG_DIR/decksniff_$(date +%Y%m%d_%H%M%S).pcap"
+DO_LOG=false
+
+for arg in "$@"; do
+  [ "$arg" = "--log" ] && DO_LOG=true
+  [ "$arg" = "-i" ] && shift && IFACE="$1"
+done
+
+if ! command -v tcpdump &>/dev/null; then
+  echo "✗ tcpdump not found. Install with: pkg install tcpdump" >&2
+  exit 1
+fi
+
+GREEN='\033[0;32m'; CYAN='\033[0;36m'; RESET='\033[0m'; BOLD='\033[1m'
+
+case "$PROFILE" in
+  http)  FILTER="port 80 or port 443"; DESC="HTTP/HTTPS traffic" ;;
+  dns)   FILTER="port 53";             DESC="DNS queries" ;;
+  arp)   FILTER="arp";                 DESC="ARP traffic" ;;
+  all|*) FILTER="";                    DESC="All traffic" ;;
+esac
+
+echo -e "\n${BOLD}decksniff — Packet Capture${RESET}"
+echo -e "  Profile:   ${CYAN}$PROFILE${RESET} ($DESC)"
+echo -e "  Interface: ${CYAN}$IFACE${RESET}"
+$DO_LOG && echo -e "  Log:       ${CYAN}$LOG${RESET}"
+echo -e "  Press Ctrl+C to stop.\n"
+
+if $DO_LOG; then
+  tcpdump -i "$IFACE" -w "$LOG" ${FILTER:+-n "$FILTER"} 2>/dev/null
+else
+  tcpdump -i "$IFACE" -l -n ${FILTER:+"$FILTER"} 2>/dev/null
+fi

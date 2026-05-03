@@ -1,0 +1,158 @@
+name: TermuxDeck OS CI/CD
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint — Shell & Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Lint shell scripts
+        run: |
+          find . -name "*.sh" | xargs shellcheck --severity=warning
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python linters
+        run: pip install flake8 mypy
+
+      - name: Lint Python tools
+        run: |
+          flake8 . --max-line-length=120 --extend-ignore=E501 --exclude=venv,linux
+          # Run mypy on known python tools in root
+          mypy deckbat deckclock deckid decklocate deckping deckwifi tdeckconf termuxdeck-doctor termuxdeck-sync termuxdeck-web termuxdeck-plugin termuxdeck-vault --ignore-missing-imports || true
+
+      - name: Validate config.json template
+        run: |
+          python3 -c "
+          import json, sys
+          required = ['version','hostname','user','profiles','theme','ssh','gemini','motd','deck']
+          cfg = json.load(open('config.template.json'))
+          missing = [k for k in required if k not in cfg]
+          if missing:
+              print(f'Missing keys: {missing}'); sys.exit(1)
+          print('config.json template: valid')
+          "
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build .deb — ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        arch: [aarch64, arm, x86_64, i686]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build .deb package
+        run: |
+          bash build-deb.sh ${{ matrix.arch }}
+
+      - name: Validate .deb structure
+        run: |
+          DEB_FILE=$(ls dist/termuxdeck_*_${{ matrix.arch }}.deb)
+          echo "Validating: $DEB_FILE"
+          # Check control file exists
+          ar x "$DEB_FILE" --output=dist/deb_extracted/
+          tar -xf dist/deb_extracted/control.tar.* -C dist/deb_extracted/
+          python3 -c "
+          content = open('dist/deb_extracted/control').read()
+          required = ['Package:','Version:','Architecture:','Depends:','Description:']
+          missing = [f for f in required if f not in content]
+          if missing:
+              raise ValueError(f'control file missing: {missing}')
+          print('control file: valid')
+          "
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: termuxdeck-${{ matrix.arch }}
+          path: dist/termuxdeck_*_${{ matrix.arch }}.deb
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  simulated-install:
+    name: Simulated Install Test (ARM64)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Run install in minimal ARM64 container
+        run: |
+          docker run --platform linux/arm64 \
+            -v "$PWD:/termuxdeck" \
+            --rm ubuntu:22.04 bash -c "
+              apt-get update -qq
+              apt-get install -y -qq zsh python3 python3-pip nodejs curl wget nano git 2>/dev/null
+              # Simulate Termux environment
+              export PREFIX=/usr
+              export HOME=/root
+              mkdir -p /root/.termuxdeck/logs
+              bash /termuxdeck/install.sh
+              # Run doctor check
+              python3 /root/.termuxdeck/tools/termuxdeck-doctor
+            "
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  publish:
+    name: Publish to apt repository
+    runs-on: ubuntu-latest
+    needs: [build, simulated-install]
+    if: github.event_name == 'release'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all .deb artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+
+      - name: Install apt-utils and GPG
+        run: sudo apt-get install -y apt-utils dpkg-dev gnupg
+
+      - name: Import GPG signing key
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --import
+
+      - name: Build apt repository structure
+        run: bash build-repo.sh
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./apt-repo
+          keep_files: true
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  nightly:
+    name: Nightly — upstream Termux package check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Termux upstream packages
+        run: |
+          python3 check-upstream.py

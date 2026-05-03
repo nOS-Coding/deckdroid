@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+"""decklocate — Location and cell tower data"""
+import sys, json, subprocess
+
+JSON_OUT = "--json" in sys.argv
+BOLD = "\033[1m"; CYAN = "\033[0;36m"; RESET = "\033[0m"
+
+data = {}
+
+# GPS via termux-location
+try:
+    r = subprocess.run(["termux-location", "-p", "network", "-r", "once"],
+                       capture_output=True, text=True, timeout=30)
+    data["gps"] = json.loads(r.stdout)
+except Exception as e:
+    data["gps"] = {"error": str(e)}
+
+# Cell info
+try:
+    r = subprocess.run(["termux-telephony-cellinfo"], capture_output=True, text=True, timeout=5)
+    data["cell"] = json.loads(r.stdout)
+except Exception as e:
+    data["cell"] = {"error": str(e)}
+
+if JSON_OUT:
+    print(json.dumps(data, indent=2))
+else:
+    print(f"\n{BOLD}decklocate — Location Data{RESET}")
+    gps = data.get("gps", {})
+    if "latitude" in gps:
+        print(f"  {CYAN}Latitude:{RESET}  {gps['latitude']}")
+        print(f"  {CYAN}Longitude:{RESET} {gps['longitude']}")
+        print(f"  {CYAN}Accuracy:{RESET}  {gps.get('accuracy', '?')} m")
+        print(f"  {CYAN}Provider:{RESET}  {gps.get('provider', '?')}")
+    else:
+        print(f"  GPS: {gps.get('error', 'unavailable')} (Termux:API required)")
+    cell = data.get("cell", {})
+    if isinstance(cell, list) and cell:
+        print(f"\n  {CYAN}Cell towers:{RESET} {len(cell)} visible")
+        for c in cell[:3]:
+            print(f"    {c.get('type','?')} — registered:{c.get('registered','?')}")
+    print()

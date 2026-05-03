@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""deckwifi — WiFi network scanner"""
+import sys, json, subprocess
+
+JSON_OUT = "--json" in sys.argv
+GREEN = "\033[0;32m"; YELLOW = "\033[1;33m"; RED = "\033[0;31m"; RESET = "\033[0m"; BOLD = "\033[1m"
+
+def scan_termux():
+    try:
+        r = subprocess.run(["termux-wifi-scaninfo"], capture_output=True, text=True, timeout=10)
+        return json.loads(r.stdout)
+    except Exception:
+        return None
+
+def scan_linux():
+    """Fallback: use iw/iwlist"""
+    try:
+        r = subprocess.run(["iw", "dev"], capture_output=True, text=True)
+        iface = None
+        for line in r.stdout.splitlines():
+            if "Interface" in line:
+                iface = line.split()[-1]
+                break
+        if not iface:
+            return None
+        r2 = subprocess.run(["iwlist", iface, "scan"], capture_output=True, text=True)
+        # Simple parse
+        networks = []
+        current = {}
+        for line in r2.stdout.splitlines():
+            line = line.strip()
+            if line.startswith("Cell"):
+                if current:
+                    networks.append(current)
+                current = {}
+            if "ESSID:" in line:
+                current["ssid"] = line.split('"')[1] if '"' in line else ""
+            if "Signal level" in line:
+                try:
+                    current["rssi"] = int(line.split("=")[-1].split(" ")[0])
+                except Exception:
+                    pass
+            if "Encryption key:" in line:
+                current["capabilities"] = "WPA" if "on" in line else "Open"
+        if current:
+            networks.append(current)
+        return networks
+    except Exception:
+        return None
+
+networks = scan_termux() or scan_linux() or []
+
+if JSON_OUT:
+    print(json.dumps(networks, indent=2))
+else:
+    print(f"\n{BOLD}deckwifi — Nearby Networks{RESET}")
+    if not networks:
+        print("  No networks found (Termux:API required for full scan)")
+    else:
+        print(f"  {'SSID':<30} {'Signal':>7}  {'Security'}")
+        print(f"  {'─'*30} {'─'*7}  {'─'*10}")
+        for net in networks[:20]:
+            ssid = net.get("ssid", "<hidden>") or "<hidden>"
+            rssi = net.get("rssi", "?")
+            caps = net.get("capabilities", "?")
+            color = GREEN if isinstance(rssi, int) and rssi > -60 else (YELLOW if isinstance(rssi, int) and rssi > -75 else RED)
+            print(f"  {ssid:<30} {color}{rssi:>5} dBm{RESET}  {caps}")
+    print()

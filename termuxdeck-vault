@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""termuxdeck-vault — Encryption for sensitive config values in TermuxDeck OS"""
+import sys
+import subprocess
+import os
+
+def run_gpg(args, input_data=None):
+    try:
+        result = subprocess.run(
+            ["gpg", "--batch", "--quiet", "--yes"] + args,
+            input=input_data,
+            capture_output=True,
+            text=True if input_data is None or isinstance(input_data, str) else False
+        )
+        return result
+    except FileNotFoundError:
+        print("Error: gpg is not installed. Install it with 'pkg install gnupg'.")
+        sys.exit(1)
+
+def encrypt_value(value, passphrase):
+    res = subprocess.run(
+        ["gpg", "--batch", "--quiet", "--yes", "--symmetric", "--passphrase", passphrase, "--armor"],
+        input=value,
+        capture_output=True,
+        text=True
+    )
+    if res.returncode == 0:
+        return res.stdout
+    else:
+        print(f"Encryption failed: {res.stderr}")
+        sys.exit(1)
+
+def decrypt_value(encrypted_value, passphrase):
+    res = subprocess.run(
+        ["gpg", "--batch", "--quiet", "--yes", "--decrypt", "--passphrase", passphrase],
+        input=encrypted_value,
+        capture_output=True,
+        text=True
+    )
+    if res.returncode == 0:
+        return res.stdout
+    else:
+        print(f"Decryption failed: {res.stderr}")
+        sys.exit(1)
+
+def usage():
+    print("Usage: termuxdeck-vault <command> [args]")
+    print("Commands:")
+    print("  encrypt <value>   Encrypt a string (prompts for passphrase)")
+    print("  decrypt <value>   Decrypt a string (prompts for passphrase)")
+    sys.exit(1)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        usage()
+
+    cmd = sys.argv[1]
+    
+    if cmd in ["encrypt", "decrypt"]:
+        if len(sys.argv) < 3:
+            print("Error: Missing value.")
+            usage()
+        
+        import getpass
+        passphrase = os.environ.get("TDECK_VAULT_PASS") or getpass.getpass("Enter Vault Passphrase: ")
+        
+        value = sys.argv[2]
+        if cmd == "encrypt":
+            print(encrypt_value(value, passphrase))
+        else:
+            print(decrypt_value(value, passphrase))
+    else:
+        usage()

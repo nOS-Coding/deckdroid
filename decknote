@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""decknote — Plain text notes system (Writer Profile)"""
+import sys, os, datetime, pathlib, subprocess, shutil
+
+NOTES = pathlib.Path.home() / ".termuxdeck/notes"
+TRASH = NOTES / ".trash"
+EDITOR = os.environ.get("EDITOR", "nano")
+BOLD = "\033[1m"; GREEN = "\033[0;32m"; CYAN = "\033[0;36m"; RESET = "\033[0m"
+
+def slugify(title):
+    return title.lower().replace(" ", "-").replace("/", "-")[:60]
+
+def find_note(partial):
+    matches = [n for n in NOTES.glob("*.md") if partial.lower() in n.name.lower()]
+    return matches[0] if len(matches) == 1 else (None if not matches else matches)
+
+def cmd_new(args):
+    if not args:
+        print("Usage: decknote new <title>"); return
+    title = " ".join(args)
+    date = datetime.date.today().isoformat()
+    fname = NOTES / f"{date}-{slugify(title)}.md"
+    fname.write_text(f"# {title}\n\n> Created: {date}\n\n")
+    subprocess.run([EDITOR, str(fname)])
+    print(f"{GREEN}✓{RESET} Note saved: {fname.name}")
+    if (NOTES.parent / ".git").exists():
+        print(f"\033[0;90m  Reminder: git commit your notes\033[0m")
+
+def cmd_list(args):
+    notes = sorted(NOTES.glob("*.md"), reverse=True)
+    if not notes:
+        print("No notes found.")
+        return
+    print(f"\n{BOLD}Notes ({len(notes)}){RESET}")
+    for n in notes:
+        size = n.stat().st_size
+        print(f"  {CYAN}{n.stem}{RESET}  ({size} B)")
+    print()
+
+def cmd_search(args):
+    if not args:
+        print("Usage: decknote search <query>"); return
+    query = " ".join(args).lower()
+    hits = 0
+    for note in NOTES.glob("*.md"):
+        for i, line in enumerate(note.read_text(errors="replace").splitlines(), 1):
+            if query in line.lower():
+                print(f"  {CYAN}{note.name}:{i}{RESET}  {line.strip()}")
+                hits += 1
+    if not hits:
+        print(f"No results for '{query}'")
+
+def cmd_view(args):
+    if not args:
+        print("Usage: decknote view <partial-title>"); return
+    note = find_note(" ".join(args))
+    if not note:
+        print("Note not found."); return
+    if isinstance(note, list):
+        print("Multiple matches:"); [print(f"  {n.name}") for n in note]; return
+    if shutil.which("mdcat"):
+        subprocess.run(["mdcat", str(note)])
+    else:
+        print(note.read_text())
+
+def cmd_delete(args):
+    if not args:
+        print("Usage: decknote delete <partial-title>"); return
+    note = find_note(" ".join(args))
+    if not note or isinstance(note, list):
+        print("Note not found or ambiguous."); return
+    dest = TRASH / note.name
+    note.rename(dest)
+    print(f"{GREEN}✓{RESET} Moved to trash: {note.name}")
+
+CMDS = {"new": cmd_new, "list": cmd_list, "search": cmd_search, "view": cmd_view, "delete": cmd_delete}
+
+if __name__ == "__main__":
+    args = sys.argv[1:]
+    if not args or args[0] not in CMDS:
+        print("Usage: decknote <new|list|search|view|delete> [args...]")
+        sys.exit(1)
+    CMDS[args[0]](args[1:])
