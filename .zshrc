@@ -1,13 +1,7 @@
 # TermuxDeck OS v1.1 — Base Zsh Configuration
-# MIT License | https://github.com/TERMUXDECK_USER/termuxdeck
+# MIT License | https://github.com/TERMUXDECK_USER/termuxdeck/
 
-
-# Only load zinit plugins if zinit actually installed
-if [ -f "$ZINIT_HOME/bin/zinit.zsh" ]; then
-  source "$ZINIT_HOME/bin/zinit.zsh"
-fi
-
-# ── Environment ───────────────────────────────────────────────────────────
+# ── Environment ────────────────────────────────────────────────────────
 export TDECK_HOME="$HOME/.termuxdeck"
 export STARSHIP_CONFIG="$TDECK_HOME/starship.toml"
 
@@ -15,7 +9,7 @@ export STARSHIP_CONFIG="$TDECK_HOME/starship.toml"
 export PATH="$TDECK_HOME/tools:$HOME/.npm-global/bin:$PATH"
 
 # ── Starship Prompt ────────────────────────────────────────────────────
-eval "$(starship init zsh)"
+command -v starship &>/dev/null && eval "$(starship init zsh)"
 
 # ── Aliases ─────────────────────────────────────────────────────────────
 alias tdeckconf="$TDECK_HOME/tools/tdeckconf"
@@ -40,7 +34,7 @@ autoload -U compinit
 compinit
 
 zstyle ':completion:*' menu select
-zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Z:a-z}'
 
 # ── Boot Sequence ─────────────────────────────────────────────────────
 [ -f "$TDECK_HOME/boot.sh" ] && source "$TDECK_HOME/boot.sh"
