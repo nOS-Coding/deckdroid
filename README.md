@@ -16,7 +16,7 @@
 
 > **Any device. Any architecture. One terminal.**
 
-**TermuxDeck OS** is a high-performance, headless OS-layer experience built entirely within the Termux userland. It transforms any Android device into a professional cyberdeck: hacker toolkit, developer workstation, or field terminal — fast, aesthetic, and under 500 MB.
+**TermuxDeck OS** is a high-performance, headless OS-layer experience built entirely within the Termux userland. It transforms any Android device into a professional cyberdeck: hacker toolkit, developer workstation, or field terminal — fast and asethatic.
 
 ---
 
