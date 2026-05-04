@@ -16,7 +16,7 @@
 
 > **Any device. Any architecture. One terminal.**
 
-**TermuxDeck OS** is a high-performance, headless OS-layer experience built entirely within the Termux userland. It transforms any Android device, Raspberry Pi, or Linux machine into a professional cyberdeck: hacker toolkit, developer workstation, or field terminal — fast, aesthetic, and under 500 MB.
+**TermuxDeck OS** is a high-performance, headless OS-layer experience built entirely within the Termux userland. It transforms any Android device into a professional cyberdeck: hacker toolkit, developer workstation, or field terminal — fast, aesthetic, and under 500 MB.
 
 ---
 
@@ -206,8 +206,8 @@ Runs on all Termux-supported architectures:
 
 ## Changelog
 
-### v1.1.0 — "The Deck Boots Up"
-**Release Date:** 2025-05-04
+### v1.1.0 
+**Release Date:** 2026-05-04
 
 #### New Features
 - **New Boot Experience** — Custom ASCII logo + profile-specific quotes (philosophic), one-liner system info
@@ -270,7 +270,6 @@ Runs on all Termux-supported architectures:
 #### System Boot (v1.1)
 - Removed fastfetch dependency for faster boot
 - Custom ASCII logo with theme-based coloring
-- Profile-specific philosophic quotes (10 per profile)
 - One-liner system info: Device · RAM · CPU · Disk · Battery
 - Boot log for session tracking
 
