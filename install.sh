@@ -99,6 +99,13 @@ install_base_packages() {
        pkg install -y "$p" || warn "Failed to install $p"
     fi
   done
+
+  # Install zinit for zsh plugins
+  if [ ! -d "$HOME/.zinit/bin" ]; then
+    log "Installing zinit plugin manager..."
+    mkdir -p "$HOME/.zinit/bin"
+    curl -sL https://raw.githubusercontent.com/zdharma/zinit/master/scripts/install.sh | bash 2>/dev/null || warn "zinit install failed (optional)"
+  fi
 }
 
 install_python_deps() {

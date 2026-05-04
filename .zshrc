@@ -1,27 +1,31 @@
 # TermuxDeck OS v1.1 — Base Zsh Configuration
 # MIT License | https://github.com/TERMUXDECK_USER/termuxdeck
 
-# ─── Zinit Plugin Manager ──────────────────────────────────────────────────────
+# ── Zinit Plugin Manager ──────────────────────────────────────────────
 export ZINIT_HOME="$HOME/.zinit"
 if [ ! -d "$ZINIT_HOME" ]; then
   mkdir -p "$ZINIT_HOME"
   curl -sL https://raw.githubusercontent.com/zdharma/zinit/master/scripts/install.sh | bash
 fi
 
-zinit light zsh-users/zsh-syntax-highlighting
-zinit light zsh-users/zsh-autosuggestions
+# Only load zinit plugins if zinit actually installed
+if [ -f "$ZINIT_HOME/bin/zinit.zsh" ]; then
+  source "$ZINIT_HOME/bin/zinit.zsh"
+  zinit light zsh-users/zsh-syntax-highlighting
+  zinit light zsh-users/zsh-autosuggestions
+fi
 
-# ─── Environment ────────────────────────────────────────────────────────────────
+# ── Environment ───────────────────────────────────────────────────────────
 export TDECK_HOME="$HOME/.termuxdeck"
 export STARSHIP_CONFIG="$TDECK_HOME/starship.toml"
 
-# ─── PATH ─────────────────────────────────────────────────────────────────────────
+# ── PATH ─────────────────────────────────────────────────────────────────
 export PATH="$TDECK_HOME/tools:$HOME/.npm-global/bin:$PATH"
 
-# ─── Starship Prompt ────────────────────────────────────────────────────────────
+# ── Starship Prompt ────────────────────────────────────────────────────
 eval "$(starship init zsh)"
 
-# ─── Aliases ─────────────────────────────────────────────────────────────────────
+# ── Aliases ─────────────────────────────────────────────────────────────
 alias tdeckconf="$TDECK_HOME/tools/tdeckconf"
 alias deckbat="$TDECK_HOME/tools/deckbat"
 alias deckping="$TDECK_HOME/tools/deckping"
@@ -34,17 +38,17 @@ alias decknote="$TDECK_HOME/tools/decknote"
 alias deckbrowse="$TDECK_HOME/tools/deckbrowse"
 alias tdock="$TDECK_HOME/tools/termuxdeck-doctor"
 
-# ─── History ────────────────────────────────────────────────────────────────────
+# ── History ────────────────────────────────────────────────────────────
 export HISTFILE="$TDECK_HOME/zsh_history"
 export HISTSIZE=10000
 export SAVEHIST=10000
 
-# ─── Tab Completion ────────────────────────────────────────────────────────────
+# ── Tab Completion ────────────────────────────────────────────────────
 autoload -U compinit
 compinit
 
 zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 
-# ─── Boot Sequence ─────────────────────────────────────────────────────────────
+# ── Boot Sequence ─────────────────────────────────────────────────────
 [ -f "$TDECK_HOME/boot.sh" ] && source "$TDECK_HOME/boot.sh"
