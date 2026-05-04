@@ -65,7 +65,7 @@ This wizard helps you set:
 | `deckmenu` | Interactive TUI launcher for all tools |
 | `deckhelp` | Help utility with usage examples |
 | `decksetup` | First-run setup wizard |
-| `gemini` | AI assistant (Gemini CLI) |
+| `deckai` | AI launcher (opencode / gemini-cli) |
 
 **Usage examples:**
 ```bash
@@ -228,7 +228,7 @@ Runs on all Termux-supported architectures:
 #### Improvements
 - All deck tools now support `--json` and `--log` flags
 - `deckbrowse` now works without URL input (defaults to Google)
-- `gemini` wrapper simplified — no API key required
+- `deckai` launcher replaces old gemini wrapper — supports opencode & gemini-cli with interactive install
 - `tdeckconf` updated with full dot-notation support
 - Boot script colored by theme, shows battery status
 - Added battery to one-liner system info

@@ -111,7 +111,7 @@ deploy_tools() {
   local deck_tools=(
     "deckbat" "deckping" "deckid" "deckclock" "deckwifi" "decklocate" "decksniff"
     "decknote" "deckbrowse" "deckdisk" "decklog" "deckclean" "deckupdate" "decktheme"
-    "deckhelp" "deckmenu" "decksetup" "gemini"
+    "deckhelp" "deckmenu" "decksetup" "deckai"
   )
   local repo_tools=(
     "tdeckconf" "tdeckprof" "termuxdeck-doctor" "termuxdeck-sync"
@@ -180,9 +180,9 @@ deploy_configs() {
     "enabled": false,
     "port": 8022
   },
-  "gemini": {
-    "enabled": false,
-    "api_key": ""
+  "ai": {
+    "selection": "",
+    "installed": []
   },
   "motd": {
     "quotes_enabled": true

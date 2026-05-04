@@ -25,6 +25,7 @@ TOOLS = {
     "g": {"name": "tdeckconf", "desc": "Config editor"},
     "h": {"name": "tdeckprof", "desc": "Profile manager"},
     "i": {"name": "deckhelp", "desc": "Help & docs"},
+    "j": {"name": "deckai", "desc": "AI assistant"},
     "0": {"name": "exit", "desc": "Exit to shell"},
 }
 
@@ -68,6 +69,7 @@ def show_menu():
         print(line)
     
     print(f"\n{BOLD}{YELLOW}── System ───────────────────────────────────────────{RESET}\n")
+    print(f"  [{CYAN}j{RESET}] deckai           ")
     print(f"  [{CYAN}0{RESET}] exit / quit")
     print(f"\n{BOLD}Enter choice:{RESET} ", end="")
     

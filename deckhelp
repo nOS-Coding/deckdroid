@@ -103,11 +103,11 @@ TOOLS = {
         "usage": "deckmenu",
         "examples": ["deckmenu"],
     },
-    "gemini": {
+    "deckai": {
         "category": "Cyberdeck Tools",
-        "desc": "AI assistant (Gemini CLI)",
-        "usage": "gemini [args]",
-        "examples": ["gemini", "gemini --help"],
+        "desc": "AI launcher (opencode / gemini-cli)",
+        "usage": "deckai",
+        "examples": ["deckai"],
     },
     "tdeckconf": {
         "category": "Repository Tools",
