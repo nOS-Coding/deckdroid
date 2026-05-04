@@ -1,18 +1,10 @@
 # TermuxDeck OS v1.1 — Base Zsh Configuration
 # MIT License | https://github.com/TERMUXDECK_USER/termuxdeck
 
-# ── Zinit Plugin Manager ──────────────────────────────────────────────
-export ZINIT_HOME="$HOME/.zinit"
-if [ ! -d "$ZINIT_HOME" ]; then
-  mkdir -p "$ZINIT_HOME"
-  curl -sL https://raw.githubusercontent.com/zdharma/zinit/master/scripts/install.sh | bash
-fi
 
 # Only load zinit plugins if zinit actually installed
 if [ -f "$ZINIT_HOME/bin/zinit.zsh" ]; then
   source "$ZINIT_HOME/bin/zinit.zsh"
-  zinit light zsh-users/zsh-syntax-highlighting
-  zinit light zsh-users/zsh-autosuggestions
 fi
 
 # ── Environment ───────────────────────────────────────────────────────────
