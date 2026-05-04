@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""decktheme — Theme manager for TermuxDeck OS"""
+import sys, json, pathlib, shutil
+
+HOME = pathlib.Path.home()
+TDECK = HOME / ".termuxdeck"
+CFG = TDECK / "config.json"
+THEMES_DIR = TDECK / "themes"
+
+GREEN = "\033[0;32m"; YELLOW = "\033[1;33m"; CYAN = "\033[0;36m"; RESET = "\033[0m"; BOLD = "\033[1m"; MAGENTA = "\033[0;35m"
+
+VISUAL_THEMES = {
+    "cyberpunk": {"prompt_color": "green", "accent": "cyan"},
+    "ghost": {"prompt_color": "white", "accent": "grey"},
+    "blood": {"prompt_color": "red", "accent": "darkred"},
+    "matrix": {"prompt_color": "green", "accent": "darkgreen"},
+    "nord": {"prompt_color": "blue", "accent": "cyan"},
+    "dracula": {"prompt_color": "magenta", "accent": "purple"},
+    "monokai": {"prompt_color": "red", "accent": "yellow"},
+    "ocean": {"prompt_color": "blue", "accent": "cyan"},
+}
+
+PROFILE_THEMES = {
+    "hacker": {"color": "green", "accent": "cyan", "style": "matrix"},
+    "developer": {"color": "blue", "accent": "lightblue", "style": "clean"},
+    "writer": {"color": "purple", "accent": "white", "style": "minimal"},
+    "crypto": {"color": "magenta", "accent": "purple", "style": "dark"},
+    "radio": {"color": "navy", "accent": "cyan", "style": "signal"},
+    "hamradio": {"color": "navy", "accent": "cyan", "style": "signal"},
+    "iot": {"color": "cyan", "accent": "green", "style": "circuit"},
+}
+
+def load_cfg():
+    if CFG.exists():
+        return json.loads(CFG.read_text())
+    return {}
+
+def save_cfg(cfg):
+    CFG.write_text(json.dumps(cfg, indent=2))
+
+def apply_starship_theme(theme_name, is_profile=False):
+    """Apply theme to starship.toml"""
+    starship_file = TDECK / "starship.toml"
+    
+    theme_config = ""
+    if is_profile:
+        ptheme = PROFILE_THEMES.get(theme_name, {})
+        color = ptheme.get("color", "green")
+    else:
+        vtheme = VISUAL_THEMES.get(theme_name, {})
+        color = vtheme.get("prompt_color", "green")
+    
+    theme_config = f"""[character]
+success_color = '{color}'
+error_color = 'red'
+
+[directory]
+style = '{color}'
+
+[status]
+success_color = '{color}'
+error_color = 'red'
+"""
+    
+    if starship_file.exists():
+        content = starship_file.read_text()
+        # Remove existing theme section if exists
+        if "[profile]" in content:
+            lines = content.split("\n")
+            new_lines = []
+            in_profile = False
+            for line in lines:
+                if line.strip().startswith("["):
+                    in_profile = False
+                if line.strip() == "[profile]":
+                    in_profile = True
+                    continue
+                if not in_profile:
+                    new_lines.append(line)
+            content = "\n".join(new_lines)
+        
+        starship_file.write_text(content + "\n" + theme_config)
+    else:
+        starship_file.write_text(theme_config)
+
+def cmd_list(args):
+    cfg = load_cfg()
+    current = cfg.get("theme", {}).get("name", "cyberpunk")
+    active_profiles = cfg.get("profiles", [])
+    
+    print(f"\n{BOLD}{CYAN}══ Visual Themes ═════════════════════════════════{RESET}\n")
+    for name in VISUAL_THEMES:
+        if name == current:
+            print(f"  {CYAN}● {name}{RESET}  (active)")
+        else:
+            print(f"    {name}")
+    
+    print(f"\n{BOLD}{MAGENTA}══ Profile Themes ════════════════════════════════{RESET}\n")
+    for name in PROFILE_THEMES:
+        if name in active_profiles:
+            print(f"  {CYAN}● {name}{RESET}  (active profile)")
+        else:
+            print(f"    {name}")
+    print()
+
+def cmd_set(args):
+    if not args:
+        print(f"Usage: decktheme set <name>")
+        print(f"Visual themes: {', '.join(VISUAL_THEMES.keys())}")
+        print(f"Profile themes: {', '.join(PROFILE_THEMES.keys())}")
+        return
+    
+    name = args[0]
+    is_profile_theme = name in PROFILE_THEMES
+    
+    if name not in VISUAL_THEMES and name not in PROFILE_THEMES:
+        print(f"Unknown theme: {name}")
+        print(f"Available: {', '.join(list(VISUAL_THEMES.keys()) + list(PROFILE_THEMES.keys()))}")
+        return
+    
+    cfg = load_cfg()
+    if "theme" not in cfg:
+        cfg["theme"] = {}
+    
+    if is_profile_theme:
+        cfg["theme"]["name"] = name
+        cfg["theme"]["type"] = "profile"
+        cfg["theme"]["prompt_color"] = PROFILE_THEMES[name]["color"]
+    else:
+        cfg["theme"]["name"] = name
+        cfg["theme"]["type"] = "visual"
+        cfg["theme"]["prompt_color"] = VISUAL_THEMES[name]["prompt_color"]
+    
+    save_cfg(cfg)
+    apply_starship_theme(name, is_profile_theme)
+    print(f"{GREEN}✓ Theme set to {name}{RESET}")
+    if is_profile_theme:
+        print(f"  Profile theme applied (matches: {PROFILE_THEMES[name]['style']} style)")
+    print(f"  Run 'source ~/.zshrc' to apply changes.")
+
+CMDS = {"list": cmd_list, "set": cmd_set}
+
+if __name__ == "__main__":
+    args = sys.argv[1:]
+    if not args or args[0] not in CMDS:
+        print(f"{BOLD}decktheme — Theme Manager{RESET}")
+        print(f"\nUsage: decktheme <command>")
+        print(f"\nCommands:")
+        print(f"  {CYAN}list{RESET}        Show all themes")
+        print(f"  {CYAN}set{RESET} <name>  Set theme")
+        print(f"\nVisual Themes: cyberpunk, ghost, blood, matrix, nord, dracula, monokai, ocean")
+        print(f"Profile Themes: hacker, developer, writer, crypto, radio, hamradio, iot")
+        print(f"\nProfile themes auto-match your active profile.")
+        sys.exit(1)
+    CMDS[args[0]](args[1:])

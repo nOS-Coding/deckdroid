@@ -1,0 +1,21 @@
+# TermuxDeck OS — Crypto Theme
+# Purple, dark, mysterious
+
+format = """
+$directory $character
+└─$character """
+
+[profile]
+name = "crypto"
+prompt_color = "35"
+accent_color = "134"
+background = "dark"
+
+[character]
+success = "🔐"
+error = "🔓"
+symbol = "❯"
+
+[status]
+success_color = "35"
+error_color = "red"

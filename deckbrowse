@@ -1,0 +1,349 @@
+#!/usr/bin/env python3
+"""
+deckbrowse — Universal terminal browser for TermuxDeck OS
+- Spoofs UA on all arches so Google actually works
+- Interactive search/URL launcher before handing off to w3m/lynx
+- Upgrades to brow6el/browsh on capable hardware automatically
+- Works on arm64, arm32, x86_64, x86
+"""
+
+import sys, os, subprocess, shutil, json, pathlib, urllib.parse, urllib.request, re
+
+# ── Arch + capability detection ───────────────────────────────────────────────
+ARCH = subprocess.run(["uname", "-m"], capture_output=True, text=True).stdout.strip()
+CAPABLE_ARCHES = ("aarch64", "x86_64")  # can run brow6el/browsh
+IS_CAPABLE = ARCH in CAPABLE_ARCHES
+
+# ── Colors ────────────────────────────────────────────────────────────────────
+BOLD   = "\033[1m"
+GREEN  = "\033[0;32m"
+CYAN   = "\033[0;36m"
+YELLOW = "\033[1;33m"
+DIM    = "\033[2m"
+RESET  = "\033[0m"
+CLEAR  = "\033[2J\033[H"
+
+# ── UA string — mobile Chrome, works on Google ────────────────────────────────
+UA = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+
+# ── Config ────────────────────────────────────────────────────────────────────
+TDECK   = pathlib.Path.home() / ".termuxdeck"
+CFG     = TDECK / "config.json"
+HISTORY = TDECK / "browser_history.txt"
+BOOKMARKS = TDECK / "bookmarks.txt"
+
+def load_cfg():
+    try:
+        return json.loads(CFG.read_text())
+    except Exception:
+        return {}
+
+# ── Engine detection — pick best available ────────────────────────────────────
+def detect_engine():
+    """Return the best available browser engine for this device."""
+    cfg = load_cfg()
+    preferred = cfg.get("browser", {}).get("engine", "auto")
+
+    if preferred != "auto" and shutil.which(preferred):
+        return preferred
+
+    # Upgrade path: brow6el > browsh > w3m > lynx > elinks
+    if IS_CAPABLE and shutil.which("brow6el"):
+        return "brow6el"
+    if IS_CAPABLE and shutil.which("browsh"):
+        return "browsh"
+    if shutil.which("w3m"):
+        return "w3m"
+    if shutil.which("lynx"):
+        return "lynx"
+    if shutil.which("elinks"):
+        return "elinks"
+    return None
+
+# ── Browser launch functions ───────────────────────────────────────────────────
+def launch_w3m(url):
+    """Launch w3m with UA spoof and TermuxDeck config."""
+    w3m_cfg = pathlib.Path.home() / ".w3m"
+    w3m_cfg.mkdir(exist_ok=True)
+
+    # Write config if not present or not TermuxDeck managed
+    config_file = w3m_cfg / "config"
+    if not config_file.exists() or "TermuxDeck" not in config_file.read_text(errors="replace"):
+        tdeck_w3m = TDECK / "../configs/w3m/config"
+        src = pathlib.Path(__file__).parent.parent / "configs/w3m/config"
+        if src.exists():
+            import shutil as sh
+            sh.copy(src, config_file)
+        else:
+            # Write inline fallback
+            config_file.write_text(
+                f"# TermuxDeck OS w3m config\n"
+                f"default_url https://www.google.com/search?q=\n"
+                f"user_agent {UA}\n"
+                f"color 1\n"
+                f"display_image 1\n"
+                f"confirm_qq 0\n"
+                f"use_mouse 1\n"
+                f"display_charset UTF-8\n"
+                f"document_charset UTF-8\n"
+                f"ssl_verify_server 0\n"
+            )
+
+    # Keymap
+    keymap_file = w3m_cfg / "keymap"
+    if not keymap_file.exists():
+        src_km = pathlib.Path(__file__).parent.parent / "configs/w3m/keymap"
+        if src_km.exists():
+            import shutil as sh
+            sh.copy(src_km, keymap_file)
+
+    os.execvp("w3m", ["w3m", "-o", f"user_agent={UA}", url])
+
+def launch_lynx(url):
+    """Launch lynx with UA spoof."""
+    os.execvp("lynx", [
+        "lynx",
+        f"-useragent={UA}",
+        "-accept_all_cookies",
+        "-display_charset=utf-8",
+        url
+    ])
+
+def launch_elinks(url):
+    os.execvp("elinks", ["elinks", url])
+
+def launch_browsh(url):
+    os.execvp("browsh", ["browsh", "--startup-url", url])
+
+def launch_brow6el(url):
+    os.execvp("brow6el", ["brow6el", url])
+
+LAUNCHERS = {
+    "w3m":     launch_w3m,
+    "lynx":    launch_lynx,
+    "elinks":  launch_elinks,
+    "browsh":  launch_browsh,
+    "brow6el": launch_brow6el,
+}
+
+# ── URL handling ──────────────────────────────────────────────────────────────
+def resolve_input(raw):
+    """
+    Turn any user input into a URL.
+    - If it looks like a URL, use it directly.
+    - Otherwise, treat it as a Google search query.
+    """
+    raw = raw.strip()
+    if not raw:
+        return "https://www.google.com"
+
+    # Looks like a URL if it has a dot and no spaces, or starts with http(s)://
+    has_scheme  = raw.startswith(("http://", "https://", "ftp://"))
+    looks_like_domain = re.match(r'^[a-zA-Z0-9\-]+\.[a-zA-Z]{2,}(/.*)?$', raw) and " " not in raw
+
+    if has_scheme or looks_like_domain:
+        if not has_scheme:
+            raw = "https://" + raw
+        return raw
+
+    # Treat as search query
+    query = urllib.parse.quote_plus(raw)
+    return f"https://www.google.com/search?q={query}"
+
+# ── History ───────────────────────────────────────────────────────────────────
+def add_history(entry):
+    try:
+        with open(HISTORY, "a") as f:
+            f.write(entry.strip() + "\n")
+    except Exception:
+        pass
+
+def load_history(n=10):
+    try:
+        lines = HISTORY.read_text().strip().splitlines()
+        # Deduplicate, preserve order, return last n
+        seen = set()
+        result = []
+        for line in reversed(lines):
+            if line not in seen:
+                seen.add(line)
+                result.append(line)
+            if len(result) >= n:
+                break
+        return list(reversed(result))
+    except Exception:
+        return []
+
+# ── Bookmarks ─────────────────────────────────────────────────────────────────
+def load_bookmarks():
+    try:
+        lines = BOOKMARKS.read_text().strip().splitlines()
+        return [l for l in lines if l.strip() and not l.startswith("#")]
+    except Exception:
+        return []
+
+def add_bookmark(url, title=""):
+    try:
+        entry = f"{url}" + (f"  # {title}" if title else "")
+        with open(BOOKMARKS, "a") as f:
+            f.write(entry + "\n")
+        print(f"{GREEN}✓{RESET} Bookmarked: {url}")
+    except Exception as e:
+        print(f"Could not save bookmark: {e}")
+
+# ── Interactive TUI launcher ───────────────────────────────────────────────────
+def tui_launcher(engine):
+    """Show the deckbrowse home screen with search input."""
+    history   = load_history()
+    bookmarks = load_bookmarks()
+
+    cols = int(subprocess.run(["tput", "cols"], capture_output=True, text=True).stdout.strip() or 80)
+    bar  = "─" * min(cols, 60)
+
+    print(CLEAR, end="")
+    print(f"""
+{BOLD}{CYAN}  deckbrowse{RESET} {DIM}— TermuxDeck OS browser{RESET}
+  {bar}
+  {DIM}engine: {engine}   arch: {ARCH}{RESET}
+""")
+
+    # Bookmarks row
+    if bookmarks:
+        print(f"  {BOLD}Bookmarks{RESET}")
+        for i, bm in enumerate(bookmarks[:6], 1):
+            url   = bm.split("#")[0].strip()
+            label = bm.split("#")[1].strip() if "#" in bm else url[:40]
+            print(f"  {CYAN}[{i}]{RESET} {label}")
+        print()
+
+    # History row
+    if history:
+        print(f"  {BOLD}Recent{RESET}")
+        for i, h in enumerate(history[-5:], 1):
+            print(f"  {DIM}{i}.{RESET} {h[:55]}")
+        print()
+
+    print(f"  {bar}")
+    print(f"  {DIM}Type a URL or search query. Enter to go. Ctrl+C to exit.{RESET}")
+    print()
+
+    try:
+        raw = input(f"  {BOLD}{GREEN}❯{RESET} ").strip()
+    except (KeyboardInterrupt, EOFError):
+        print(f"\n{DIM}bye.{RESET}\n")
+        sys.exit(0)
+
+    # Shortcut: number selects bookmark
+    if raw.isdigit() and bookmarks:
+        idx = int(raw) - 1
+        if 0 <= idx < len(bookmarks):
+            raw = bookmarks[idx].split("#")[0].strip()
+
+    return raw
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+def main():
+    args = sys.argv[1:]
+
+    # Sub-commands
+    if args and args[0] == "bookmarks":
+        bms = load_bookmarks()
+        if not bms:
+            print("No bookmarks yet. Browse somewhere and use: deckbrowse --bookmark <url>")
+        else:
+            print(f"\n{BOLD}deckbrowse — Bookmarks{RESET}")
+            for bm in bms:
+                print(f"  {CYAN}•{RESET} {bm}")
+        return
+
+    if args and args[0] == "history":
+        hist = load_history(20)
+        if not hist:
+            print("No history yet.")
+        else:
+            print(f"\n{BOLD}deckbrowse — History{RESET}")
+            for h in hist:
+                print(f"  {DIM}·{RESET} {h}")
+        return
+
+    if args and args[0] in ("--bookmark", "-b") and len(args) >= 2:
+        title = " ".join(args[2:]) if len(args) > 2 else ""
+        add_bookmark(args[1], title)
+        return
+
+    if args and args[0] in ("--engine", "-e"):
+        cfg = load_cfg()
+        if len(args) >= 2:
+            cfg.setdefault("browser", {})["engine"] = args[1]
+            CFG.write_text(json.dumps(cfg, indent=2))
+            print(f"{GREEN}✓{RESET} Engine set to: {args[1]}")
+        else:
+            print(f"Current engine: {cfg.get('browser',{}).get('engine','auto')}")
+        return
+
+    if args and args[0] in ("--help", "-h"):
+        print(f"""
+{BOLD}deckbrowse{RESET} — Universal terminal browser for TermuxDeck OS
+
+{BOLD}Usage:{RESET}
+  deckbrowse                      Interactive launcher (home screen)
+  deckbrowse <url>                Open URL directly
+  deckbrowse <search query>       Search Google directly
+  deckbrowse google               Open google.com
+  deckbrowse youtube.com          Open YouTube (text mode)
+
+{BOLD}Sub-commands:{RESET}
+  deckbrowse bookmarks            List bookmarks
+  deckbrowse history              Show recent history
+  deckbrowse --bookmark <url> [title]  Save a bookmark
+  deckbrowse --engine <name>      Set preferred engine (auto/w3m/lynx/brow6el/browsh)
+
+{BOLD}Engines available on this device ({ARCH}):{RESET}
+""")
+        for e in ["brow6el", "browsh", "w3m", "lynx", "elinks"]:
+            found = shutil.which(e)
+            status = f"{GREEN}✓ available{RESET}" if found else f"{DIM}✗ not installed{RESET}"
+            print(f"  {e:<10} {status}")
+        print()
+        return
+
+    # ── Detect engine ──
+    engine = detect_engine()
+    if not engine:
+        print(f"{YELLOW}No browser engine found.{RESET}")
+        print("Install one: pkg install w3m   or   pkg install lynx")
+        sys.exit(1)
+
+    # ── Resolve URL ──
+    if args:
+        # Direct invocation with URL/query
+        raw = " ".join(args)
+        # Special shorthand
+        if raw.lower() == "google":
+            raw = "google.com"
+        elif raw.lower() in ("home", ""):
+            raw = "https://www.google.com"
+    else:
+        # Interactive TUI launcher (or default to Google if non-interactive)
+        try:
+            raw = tui_launcher(engine)
+        except (EOFError, OSError):
+            raw = "https://www.google.com"
+
+    url = resolve_input(raw)
+
+    # Save to history
+    add_history(raw if raw.startswith("http") else url)
+
+    # ── Print brief status before handing off ──
+    print(f"\n  {DIM}opening {url[:70]} via {engine}{RESET}\n")
+
+    # ── Launch ──
+    launcher = LAUNCHERS.get(engine)
+    if launcher:
+        launcher(url)
+    else:
+        os.execvp(engine, [engine, url])
+
+if __name__ == "__main__":
+    main()

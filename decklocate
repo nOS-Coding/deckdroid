@@ -1,42 +1,137 @@
-#!/usr/bin/env python3
-"""decklocate — Location and cell tower data"""
-import sys, json, subprocess
+#!/data/data/com.termux/files/usr/bin/bash
+# decklocate — GPS and cell-tower triangulation for TermuxDeck OS
+# Usage: decklocate [--json] [--log] [--provider gps|network|passive] [--track <seconds>]
 
-JSON_OUT = "--json" in sys.argv
-BOLD = "\033[1m"; CYAN = "\033[0;36m"; RESET = "\033[0m"
+LOG_DIR="$HOME/.termuxdeck/logs"
+JSON_OUT=false
+DO_LOG=false
+PROVIDER="gps"
+TRACK=0
 
-data = {}
+i=1
+while [ $i -le $# ]; do
+  eval "arg=\${$i}"
+  case $arg in
+    --json)     JSON_OUT=true ;;
+    --log)      DO_LOG=true ;;
+    --provider) i=$((i+1)); eval "PROVIDER=\${$i}" ;;
+    --track)    i=$((i+1)); eval "TRACK=\${$i}" ;;
+  esac
+  i=$((i+1))
+done
 
-# GPS via termux-location
-try:
-    r = subprocess.run(["termux-location", "-p", "network", "-r", "once"],
-                       capture_output=True, text=True, timeout=30)
-    data["gps"] = json.loads(r.stdout)
-except Exception as e:
-    data["gps"] = {"error": str(e)}
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Cell info
-try:
-    r = subprocess.run(["termux-telephony-cellinfo"], capture_output=True, text=True, timeout=5)
-    data["cell"] = json.loads(r.stdout)
-except Exception as e:
-    data["cell"] = {"error": str(e)}
+# ── Check Termux:API ──────────────────────────────────────────────────────────
+if ! command -v termux-location &>/dev/null; then
+  echo -e "\033[0;31m[decklocate] termux-location not found.\033[0m"
+  echo -e "\033[0;33m  Run: pkg install termux-api\033[0m"
+  echo -e "\033[0;33m  And install the Termux:API app from F-Droid.\033[0m"
+  exit 1
+fi
 
-if JSON_OUT:
-    print(json.dumps(data, indent=2))
-else:
-    print(f"\n{BOLD}decklocate — Location Data{RESET}")
-    gps = data.get("gps", {})
-    if "latitude" in gps:
-        print(f"  {CYAN}Latitude:{RESET}  {gps['latitude']}")
-        print(f"  {CYAN}Longitude:{RESET} {gps['longitude']}")
-        print(f"  {CYAN}Accuracy:{RESET}  {gps.get('accuracy', '?')} m")
-        print(f"  {CYAN}Provider:{RESET}  {gps.get('provider', '?')}")
-    else:
-        print(f"  GPS: {gps.get('error', 'unavailable')} (Termux:API required)")
-    cell = data.get("cell", {})
-    if isinstance(cell, list) and cell:
-        print(f"\n  {CYAN}Cell towers:{RESET} {len(cell)} visible")
-        for c in cell[:3]:
-            print(f"    {c.get('type','?')} — registered:{c.get('registered','?')}")
-    print()
+locate_once() {
+  RAW=$(termux-location -p "$PROVIDER" -r once 2>/dev/null)
+  if [ -z "$RAW" ] || echo "$RAW" | grep -q '"error"'; then
+    # Fallback to network provider
+    RAW=$(termux-location -p network -r once 2>/dev/null)
+  fi
+  echo "$RAW"
+}
+
+# ── Cell tower info ───────────────────────────────────────────────────────────
+CELL_INFO="null"
+if command -v termux-telephony-cellinfo &>/dev/null; then
+  CELL_RAW=$(termux-telephony-cellinfo 2>/dev/null)
+  [ -n "$CELL_RAW" ] && CELL_INFO="$CELL_RAW"
+fi
+
+# ── Reverse geocode (via Nominatim, offline-safe) ─────────────────────────────
+reverse_geocode() {
+  LAT="$1"; LON="$2"
+  if command -v curl &>/dev/null; then
+    curl -s --max-time 5 \
+      -H "User-Agent: TermuxDeckOS/1.0" \
+      "https://nominatim.openstreetmap.org/reverse?lat=${LAT}&lon=${LON}&format=json" \
+      2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('display_name','N/A'))" 2>/dev/null
+  else
+    echo "N/A (curl not available)"
+  fi
+}
+
+run_locate() {
+  RAW=$(locate_once)
+  if [ -z "$RAW" ]; then
+    echo -e "\033[0;31m[decklocate] No location data returned. Check permissions and GPS signal.\033[0m" >&2
+    return
+  fi
+
+  LAT=$(echo "$RAW"      | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('latitude','N/A'))" 2>/dev/null)
+  LON=$(echo "$RAW"      | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('longitude','N/A'))" 2>/dev/null)
+  ALT=$(echo "$RAW"      | python3 -c "import sys,json; d=json.load(sys.stdin); print(round(d.get('altitude',0),1))" 2>/dev/null)
+  ACC=$(echo "$RAW"      | python3 -c "import sys,json; d=json.load(sys.stdin); print(round(d.get('accuracy',0),1))" 2>/dev/null)
+  BEARING=$(echo "$RAW"  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('bearing','N/A'))" 2>/dev/null)
+  SPEED=$(echo "$RAW"    | python3 -c "import sys,json; d=json.load(sys.stdin); print(round(d.get('speed',0),2))" 2>/dev/null)
+  PROV=$(echo "$RAW"     | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('provider','N/A'))" 2>/dev/null)
+
+  TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  MAPS_URL="https://maps.google.com/?q=${LAT},${LON}"
+
+  if $JSON_OUT; then
+    python3 -c "
+import json
+print(json.dumps({
+  'timestamp':  '$TS',
+  'provider':   '$PROV',
+  'latitude':   '$LAT',
+  'longitude':  '$LON',
+  'altitude_m': '$ALT',
+  'accuracy_m': '$ACC',
+  'bearing':    '$BEARING',
+  'speed_mps':  '$SPEED',
+  'maps_url':   '$MAPS_URL',
+}, indent=2))
+"
+  else
+    C='\033[0;36m'; G='\033[0;32m'; Y='\033[0;33m'; N='\033[0m'; B='\033[1m'; M='\033[0;35m'
+    echo -e "${B}${C}╔══════════════════════════════════════╗${N}"
+    echo -e "${B}${C}║        decklocate  v1.0              ║${N}"
+    echo -e "${B}${C}╚══════════════════════════════════════╝${N}"
+    echo -e "${B}${M}── Position ─────────────────────────────${N}"
+    echo -e "  ${B}Latitude  :${N} ${G}$LAT${N}"
+    echo -e "  ${B}Longitude :${N} ${G}$LON${N}"
+    echo -e "  ${B}Altitude  :${N} ${ALT}m"
+    echo -e "  ${B}Accuracy  :${N} ±${ACC}m"
+    echo -e "  ${B}Bearing   :${N} ${BEARING}°"
+    echo -e "  ${B}Speed     :${N} ${SPEED} m/s"
+    echo -e "  ${B}Provider  :${N} $PROV"
+    echo -e "${B}${M}── Maps ─────────────────────────────────${N}"
+    echo -e "  ${B}Google    :${N} $MAPS_URL"
+    echo -e "  ${B}Time      :${N} $TS"
+
+    # Reverse geocode if online
+    if [ "$LAT" != "N/A" ] && [ "$LAT" != "" ]; then
+      echo -e "${B}${M}── Address ──────────────────────────────${N}"
+      ADDR=$(reverse_geocode "$LAT" "$LON")
+      echo -e "  ${B}Address   :${N} $ADDR"
+    fi
+  fi
+
+  if $DO_LOG; then
+    mkdir -p "$LOG_DIR"
+    echo "{\"ts\":\"$TS\",\"tool\":\"decklocate\",\"lat\":\"$LAT\",\"lon\":\"$LON\",\"acc\":\"$ACC\",\"provider\":\"$PROV\"}" >> "$LOG_DIR/tools.log"
+  fi
+}
+
+# ── Run once or track ─────────────────────────────────────────────────────────
+if [ "$TRACK" -gt 0 ] 2>/dev/null; then
+  C='\033[0;36m'; N='\033[0m'; B='\033[1m'
+  echo -e "${B}${C}[decklocate] Tracking mode — every ${TRACK}s (Ctrl+C to stop)${N}"
+  while true; do
+    run_locate
+    echo "---"
+    sleep "$TRACK"
+  done
+else
+  run_locate
+fi

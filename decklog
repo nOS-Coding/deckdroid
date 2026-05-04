@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""decklog — Log viewer for TermuxDeck OS"""
+import sys, pathlib, json, subprocess
+
+HOME = pathlib.Path.home()
+LOG_DIR = HOME / ".termuxdeck/logs"
+GREEN = "\033[0;32m"; CYAN = "\033[0;36m"; YELLOW = "\033[1;33m"; RESET = "\033[0m"; BOLD = "\033[1m"
+
+LOG_FILES = {
+    "install": "install.log",
+    "boot": "boot.log",
+    "tools": "tools.log",
+    "disclaimer": "disclaimer.log",
+    "doctor": "doctor.log",
+    "error": "error.log",
+}
+
+def tail(f, n=20):
+    try:
+        lines = f.read_text().splitlines()
+        return lines[-n:] if len(lines) > n else lines
+    except:
+        return []
+
+def cmd_list(args):
+    if not LOG_DIR.exists():
+        print(f"{YELLOW}No logs found.{RESET}")
+        return
+    print(f"\n{BOLD}{CYAN}TermuxDeck Logs{RESET}")
+    for name, fname in LOG_FILES.items():
+        fpath = LOG_DIR / fname
+        size = fpath.stat().st_size if fpath.exists() else 0
+        print(f"  {CYAN}{name:<12}{RESET}  {fname}  ({size} B)")
+    print()
+
+def cmd_view(args):
+    name = args[0] if args else "all"
+    if name == "all":
+        for n, fname in LOG_FILES.items():
+            fpath = LOG_DIR / fname
+            if fpath.exists():
+                print(f"\n{BOLD}=== {fname} ==={RESET}")
+                for line in tail(fpath):
+                    print(line)
+    else:
+        fname = LOG_FILES.get(name)
+        if not fname:
+            print(f"Unknown log: {name}")
+            return
+        fpath = LOG_DIR / fname
+        if fpath.exists():
+            for line in tail(fpath):
+                print(line)
+        else:
+            print(f"{YELLOW}Log file not found: {fname}{RESET}")
+
+def cmd_clear(args):
+    name = args[0] if args else "all"
+    if name == "all":
+        for fname in LOG_FILES.values():
+            fpath = LOG_DIR / fname
+            if fpath.exists():
+                fpath.unlink()
+        print(f"{GREEN}✓ All logs cleared{RESET}")
+    else:
+        fname = LOG_FILES.get(name)
+        if fname:
+            fpath = LOG_DIR / fname
+            if fpath.exists():
+                fpath.unlink()
+                print(f"{GREEN}✓ {name} log cleared{RESET}")
+
+CMDS = {"list": cmd_list, "view": cmd_view, "clear": cmd_clear}
+
+if __name__ == "__main__":
+    args = sys.argv[1:]
+    if not args or args[0] not in CMDS:
+        print(f"{BOLD}decklog — Log Viewer{RESET}")
+        print(f"Usage: decklog <command>")
+        print(f"Commands:")
+        print(f"  {CYAN}list{RESET}           Show available logs")
+        print(f"  {CYAN}view{RESET} [name]   View log (all, install, boot, tools, doctor)")
+        print(f"  {CYAN}clear{RESET} [name]  Clear log (all or specific)")
+        sys.exit(1)
+    CMDS[args[0]](args[1:])

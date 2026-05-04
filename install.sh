@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# TermuxDeck OS Installer v1.0.0
+# TermuxDeck OS Installer v1.1.0
 # MIT License | https://github.com/TERMUXDECK_USER/termuxdeck
 set -euo pipefail
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 TERMUXDECK_USER="nOS-Coding"
-TDECK_VERSION="1.0.0"
+TDECK_VERSION="1.1.0"
 TDECK_HOME="$HOME/.termuxdeck"
-TDECK_REPO="https://termuxdeck.dev/apt"
-# Fallback: TDECK_REPO="https://$TERMUXDECK_USER.github.io/termuxdeck"
+TDECK_REPO="https://$TERMUXDECK_USER.github.io/termuxdeck"
 
 GITHUB_RAW="https://raw.githubusercontent.com/$TERMUXDECK_USER/termuxdeck/main"
 LOG_FILE="$TDECK_HOME/logs/install.log"
@@ -91,7 +90,7 @@ install_base_packages() {
   log "Updating package lists..."
   pkg update -y 2>/dev/null | tail -n 5
 
-  local pkgs=(zsh starship fastfetch nano python git curl wget nodejs)
+  local pkgs=(zsh starship fastfetch nano python git curl wget nodejs w3m termux-api)
   log "Installing core dependencies: ${pkgs[*]}"
   for p in "${pkgs[@]}"; do
     if command -v "$p" &>/dev/null; then
@@ -109,14 +108,35 @@ install_python_deps() {
 
 # ─── Component Deployment ─────────────────────────────────────────────────────
 deploy_tools() {
-  log "Deploying deck tools..."
-  local tools=(
-    "tdeckconf" "termuxdeck-doctor" "deckbat" "deckping" 
-    "deckid" "deckclock" "deckwifi" "decklocate" "decksniff" "decknote"
-    "gemini" "termuxdeck-sync" "termuxdeck-web" "termuxdeck-plugin" "termuxdeck-vault"
+  local deck_tools=(
+    "deckbat" "deckping" "deckid" "deckclock" "deckwifi" "decklocate" "decksniff"
+    "decknote" "deckbrowse" "deckdisk" "decklog" "deckclean" "deckupdate" "decktheme"
+    "deckhelp" "deckmenu" "decksetup" "gemini"
   )
-  for tool in "${tools[@]}"; do
+  local repo_tools=(
+    "tdeckconf" "tdeckprof" "termuxdeck-doctor" "termuxdeck-sync"
+    "termuxdeck-web" "termuxdeck-plugin" "termuxdeck-vault"
+  )
+  local configs=(
+    "starship.toml" "fastfetch.jsonc" "ascii-logo.txt"
+  )
+  log "Deploying deck tools..."
+  for tool in "${deck_tools[@]}"; do
     fetch_and_deploy "$tool" "$TDECK_HOME/tools/$tool" true
+  done
+  log "Deploying repo tools..."
+  for tool in "${repo_tools[@]}"; do
+    fetch_and_deploy "$tool" "$TDECK_HOME/tools/$tool" true
+  done
+  log "Deploying config files..."
+  for cfg in "${configs[@]}"; do
+    fetch_and_deploy "$cfg" "$TDECK_HOME/$cfg"
+  done
+  log "Deploying profile themes..."
+  mkdir -p "$TDECK_HOME/themes"
+  for theme in hacker developer writer crypto radio hamradio iot base; do
+    fetch_and_deploy "${theme}.toml" "$TDECK_HOME/themes/${theme}.toml"
+    fetch_and_deploy "${theme}.quotes" "$TDECK_HOME/themes/${theme}.quotes"
   done
 }
 
@@ -135,6 +155,7 @@ deploy_configs() {
   log "Deploying configurations..."
   fetch_and_deploy "starship.toml" "$TDECK_HOME/starship.toml"
   fetch_and_deploy "fastfetch.jsonc" "$TDECK_HOME/fastfetch.jsonc"
+  fetch_and_deploy "ascii-logo.txt" "$TDECK_HOME/ascii-logo.txt"
   fetch_and_deploy "boot.sh" "$TDECK_HOME/boot.sh" true
   fetch_and_deploy "quotes.txt" "$TDECK_HOME/quotes.txt"
   fetch_and_deploy ".zshrc" "$HOME/.zshrc"

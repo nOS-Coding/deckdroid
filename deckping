@@ -1,59 +1,112 @@
-#!/usr/bin/env python3
-"""deckping — Multi-layer connectivity test"""
-import subprocess, sys, time, socket
+#!/data/data/com.termux/files/usr/bin/bash
+# deckping — Multi-layer connectivity audit for TermuxDeck OS
+# Checks: Gateway → DNS → Internet → Latency
+# Usage: deckping [--json] [--log] [--host <custom_host>]
 
-JSON_OUT = "--json" in sys.argv
-GREEN = "\033[0;32m"; RED = "\033[0;31m"; YELLOW = "\033[1;33m"; RESET = "\033[0m"; BOLD = "\033[1m"
+LOG_DIR="$HOME/.termuxdeck/logs"
+JSON_OUT=false
+DO_LOG=false
+CUSTOM_HOST=""
 
-TARGETS = [
-    ("Gateway",  "192.168.1.1"),
-    ("DNS",      "8.8.8.8"),
-    ("Internet", "1.1.1.1"),
-    ("IPv6",     "2606:4700:4700::1111"),
-]
+i=1
+while [ $i -le $# ]; do
+  eval "arg=\${$i}"
+  case $arg in
+    --json) JSON_OUT=true ;;
+    --log)  DO_LOG=true ;;
+    --host) i=$((i+1)); eval "CUSTOM_HOST=\${$i}" ;;
+  esac
+  i=$((i+1))
+done
 
-def ping(host, count=3):
-    try:
-        start = time.time()
-        r = subprocess.run(
-            ["ping", "-c", str(count), "-W", "2", host],
-            capture_output=True, text=True, timeout=10
-        )
-        elapsed = (time.time() - start) * 1000
-        ok = r.returncode == 0
-        # Extract avg latency from ping output
-        latency = None
-        for line in r.stdout.splitlines():
-            if "avg" in line or "rtt" in line:
-                try:
-                    latency = float(line.split("/")[4])
-                except Exception:
-                    pass
-        return ok, latency or elapsed
-    except Exception:
-        return False, None
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-results = {}
-if not JSON_OUT:
-    print(f"\n{BOLD}deckping — Connectivity Test{RESET}")
+# ── helpers ──────────────────────────────────────────────────────────────────
+check_ping() {
+  ping -c 1 -W 2 "$1" &>/dev/null && echo "OK" || echo "FAIL"
+}
 
-for label, host in TARGETS:
-    ok, latency = ping(host)
-    results[label] = {"host": host, "ok": ok, "latency_ms": latency}
-    if not JSON_OUT:
-        status = f"{GREEN}✓ {latency:.1f}ms{RESET}" if ok else f"{RED}✗ unreachable{RESET}"
-        print(f"  {label:<12} {host:<20} {status}")
+latency_ms() {
+  ping -c 3 -W 2 "$1" 2>/dev/null | awk -F'/' 'END{if($5) printf "%.1f", $5; else print "N/A"}'
+}
 
-# DNS resolution test
-try:
-    socket.gethostbyname("example.com")
-    dns_ok = True
-except Exception:
-    dns_ok = False
-results["DNS_resolve"] = {"ok": dns_ok}
-if not JSON_OUT:
-    print(f"  {'DNS resolve':<12} {'example.com':<20} {GREEN+'✓'+RESET if dns_ok else RED+'✗'+RESET}")
-    print()
+# ── Gateway ───────────────────────────────────────────────────────────────────
+GW=$(ip route 2>/dev/null | awk '/default/{print $3; exit}')
+GW=${GW:-"N/A"}
+if [ "$GW" != "N/A" ]; then
+  GW_STATUS=$(check_ping "$GW")
+  GW_LAT=$(latency_ms "$GW")
+else
+  GW_STATUS="N/A"; GW_LAT="N/A"
+fi
 
-if JSON_OUT:
-    import json; print(json.dumps(results, indent=2))
+# ── DNS ───────────────────────────────────────────────────────────────────────
+DNS_STATUS="FAIL"; DNS_LAT="N/A"
+if command -v nslookup &>/dev/null; then
+  nslookup google.com &>/dev/null && DNS_STATUS="OK"
+elif command -v host &>/dev/null; then
+  host google.com &>/dev/null && DNS_STATUS="OK"
+elif command -v dig &>/dev/null; then
+  dig +short google.com &>/dev/null && DNS_STATUS="OK"
+fi
+
+# ── Internet ──────────────────────────────────────────────────────────────────
+NET_STATUS=$(check_ping "1.1.1.1")
+NET_LAT=$(latency_ms "1.1.1.1")
+
+# ── HTTP ──────────────────────────────────────────────────────────────────────
+HTTP_STATUS="FAIL"
+if command -v curl &>/dev/null; then
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://cloudflare.com" 2>/dev/null)
+  [ "$CODE" = "200" ] || [ "$CODE" = "301" ] || [ "$CODE" = "302" ] && HTTP_STATUS="OK ($CODE)" || HTTP_STATUS="FAIL ($CODE)"
+fi
+
+# ── Custom host ───────────────────────────────────────────────────────────────
+CUSTOM_STATUS="N/A"; CUSTOM_LAT="N/A"
+if [ -n "$CUSTOM_HOST" ]; then
+  CUSTOM_STATUS=$(check_ping "$CUSTOM_HOST")
+  CUSTOM_LAT=$(latency_ms "$CUSTOM_HOST")
+fi
+
+# ── Local IP ──────────────────────────────────────────────────────────────────
+LOCAL_IP=$(ip addr 2>/dev/null | awk '/inet /{print $2}' | grep -v '127.0.0.1' | head -1 | cut -d/ -f1)
+LOCAL_IP=${LOCAL_IP:-"N/A"}
+
+if $JSON_OUT; then
+  python3 -c "
+import json
+d = {
+  'timestamp': '$TIMESTAMP',
+  'local_ip':  '$LOCAL_IP',
+  'gateway':   {'address': '$GW', 'status': '$GW_STATUS', 'latency_ms': '$GW_LAT'},
+  'dns':        {'status': '$DNS_STATUS'},
+  'internet':  {'address': '1.1.1.1', 'status': '$NET_STATUS', 'latency_ms': '$NET_LAT'},
+  'http':       {'status': '$HTTP_STATUS'},
+}
+if '$CUSTOM_HOST':
+  d['custom'] = {'address': '$CUSTOM_HOST', 'status': '$CUSTOM_STATUS', 'latency_ms': '$CUSTOM_LAT'}
+print(json.dumps(d, indent=2))
+"
+else
+  R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; C='\033[0;36m'; N='\033[0m'; B='\033[1m'
+  ok()   { echo -e "${G}✔ OK${N}"; }
+  fail() { echo -e "${R}✘ FAIL${N}"; }
+  na()   { echo -e "${Y}— N/A${N}"; }
+  fmt()  { case $1 in OK*) ok ;; FAIL*) fail ;; *) na ;; esac; }
+
+  echo -e "${B}${C}╔════════════════════════════════╗${N}"
+  echo -e "${B}${C}║       deckping  v1.0           ║${N}"
+  echo -e "${B}${C}╚════════════════════════════════╝${N}"
+  echo -e "  ${B}Local IP  :${N} $LOCAL_IP"
+  echo -e "  ${B}Gateway   :${N} $GW  $(fmt $GW_STATUS)  ${Y}${GW_LAT}ms${N}"
+  echo -e "  ${B}DNS       :${N} $(fmt $DNS_STATUS)"
+  echo -e "  ${B}Internet  :${N} 1.1.1.1  $(fmt $NET_STATUS)  ${Y}${NET_LAT}ms${N}"
+  echo -e "  ${B}HTTP/S    :${N} $HTTP_STATUS"
+  [ -n "$CUSTOM_HOST" ] && echo -e "  ${B}Custom    :${N} $CUSTOM_HOST  $(fmt $CUSTOM_STATUS)  ${Y}${CUSTOM_LAT}ms${N}"
+  echo -e "  ${B}Time      :${N} $TIMESTAMP"
+fi
+
+if $DO_LOG; then
+  mkdir -p "$LOG_DIR"
+  echo "{\"ts\":\"$TIMESTAMP\",\"tool\":\"deckping\",\"gw\":\"$GW_STATUS\",\"dns\":\"$DNS_STATUS\",\"net\":\"$NET_STATUS\",\"http\":\"$HTTP_STATUS\"}" >> "$LOG_DIR/tools.log"
+fi

@@ -1,0 +1,21 @@
+# TermuxDeck OS — Writer Theme
+# Warm, paper-like, minimal
+
+format = """
+$directory $character
+└─$character """
+
+[profile]
+name = "writer"
+prompt_color = "94"
+accent_color = "90"
+background = "paper"
+
+[character]
+success = "✎"
+error = "✎"
+symbol = "→"
+
+[status]
+success_color = "94"
+error_color = "red"

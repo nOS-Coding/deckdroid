@@ -1,0 +1,21 @@
+# TermuxDeck OS — Radio/SDR Theme
+# Space navy, signal tones
+
+format = """
+$directory $character
+└─$character """
+
+[profile]
+name = "radio"
+prompt_color = "34"
+accent_color = "36"
+background = "navy"
+
+[character]
+success = "📡"
+error = "⚠"
+symbol = "❯"
+
+[status]
+success_color = "34"
+error_color = "red"

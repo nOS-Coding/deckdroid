@@ -1,0 +1,29 @@
+# TermuxDeck OS — Developer Theme
+# Clean, blue-toned for coders
+
+format = """
+$directory $git_branch $character
+└─$character """
+
+[profile]
+name = "developer"
+prompt_color = "33"
+accent_color = "39"
+background = "dark"
+
+[git_branch]
+format = "$symbol $branch"
+color = "green"
+
+[character]
+success = "▶"
+error = "✖"
+symbol = "❯"
+
+[python]
+symbol = "🐍"
+format = "$symbol($version)"
+
+[nodejs]
+symbol = "⬢"
+format = "$symbol($version)"

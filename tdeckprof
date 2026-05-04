@@ -1,0 +1,168 @@
+#!/usr/bin/env python3
+"""
+TermuxDeck OS — Profile Manager (tdeckprof)
+Manages and activates TermuxDeck profiles.
+"""
+import os, sys, subprocess, json, pathlib
+
+TDECK_HOME = pathlib.Path.home() / ".termuxdeck"
+CFG = TDECK_HOME / "config.json"
+PROFILES_DIR = TDECK / "profiles"
+
+PROFILES = {
+    "hacker": {
+        "pkgs": ["nmap", "netcat-openbsd", "curl", "wget", "tcpdump", "tshark", "whois", "dnsutils"],
+        "desc": "Security research tools (nmap, tcpdump, etc.)",
+    },
+    "developer": {
+        "pkgs": ["git", "openssh", "python", "nodejs", "nano"],
+        "desc": "Development environment (git, python, nodejs)",
+    },
+    "writer": {
+        "pkgs": ["mdcat", "pandoc"],
+        "desc": "Writing tools (markdown, pandoc)",
+    },
+    "crypto": {
+        "pkgs": ["gnupg", "openssl"],
+        "desc": "Encryption tools (GPG, openssl)",
+    },
+    "radio": {
+        "pkgs": ["rtl-sdr", "sox", "multimon-ng"],
+        "desc": "SDR tools (RTL-SDR, radio decode)",
+    },
+    "hamradio": {
+        "pkgs": ["gnupg"],  # hamlib may not be available
+        "desc": "Amateur radio tools",
+    },
+    "iot": {
+        "pkgs": ["python", "mosquitto-clients"],
+        "desc": "IoT tools (serial, MQTT)",
+    },
+}
+
+def load_cfg():
+    if CFG.exists():
+        return json.loads(CFG.read_text())
+    return {"profiles": []}
+
+def save_cfg(cfg):
+    CFG.write_text(json.dumps(cfg, indent=2))
+
+def get_active():
+    return load_cfg().get("profiles", [])
+
+def set_active(profile, active=True):
+    cfg = load_cfg()
+    profiles = cfg.get("profiles", [])
+    if active and profile not in profiles:
+        profiles.append(profile)
+    elif not active and profile in profiles:
+        profiles.remove(profile)
+    cfg["profiles"] = profiles
+    save_cfg(cfg)
+
+def install_pkg(pkg):
+    try:
+        result = subprocess.run(
+            ["pkg", "install", "-y", pkg],
+            capture_output=True, text=True, timeout=120
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+def cmd_list(args):
+    """List available profiles."""
+    active = get_active()
+    print("\n\033[1mTermuxDeck OS — Available Profiles\033[0m\n")
+    for name, info in PROFILES.items():
+        status = "\033[0;32m[active]\033[0m" if name in active else "\033[0;90m[-----]\033[0m"
+        print(f"  {name:<12} {status}  {info['desc']}")
+    print()
+
+def cmd_set(args):
+    """Install and activate a profile."""
+    if not args:
+        print("Usage: tdeckprof set <profile>")
+        print(f"Available: {', '.join(PROFILES.keys())}")
+        sys.exit(1)
+
+    profile = args[0]
+    if profile not in PROFILES:
+        print(f"Unknown profile: {profile}")
+        print(f"Available: {', '.join(PROFILES.keys())}")
+        sys.exit(1)
+
+    print(f"\n\033[1mInstalling {profile} profile...\033[0m\n")
+    for pkg in PROFILES[profile]["pkgs"]:
+        print(f"  Installing {pkg}...", end=" ")
+        if install_pkg(pkg):
+            print("\033[0;32mOK\033[0m")
+        else:
+            print("\033[0;33mskipped\033[0m (may not be available for this arch)")
+
+    set_active(profile, True)
+    print(f"\n\033[0;32m✓ {profile} profile activated\033[0m")
+
+def cmd_unset(args):
+    """Deactivate a profile (does not uninstall packages)."""
+    if not args:
+        print("Usage: tdeckprof unset <profile>")
+        sys.exit(1)
+    profile = args[0]
+    if profile not in PROFILES:
+        print(f"Unknown profile: {profile}")
+        sys.exit(1)
+    set_active(profile, False)
+    print(f"✓ {profile} profile deactivated")
+
+def cmd_install_all(args):
+    """Install all profiles."""
+    for name in PROFILES:
+        set_active(name, True)
+        print(f"\n[Installing {name}]")
+        for pkg in PROFILES[name]["pkgs"]:
+            print(f"  {pkg}...", end=" ")
+            if install_pkg(pkg):
+                print("OK")
+            else:
+                print("skipped")
+    print("\n\033[0;32m✓ All profiles installed and activated\033[0m")
+
+def cmd_status(args):
+    """Show active profiles."""
+    active = get_active()
+    if active:
+        print("\033[1mActive profiles:\033[0m")
+        for p in active:
+            print(f"  • {p}")
+    else:
+        print("No profiles active. Run: tdeckprof set <profile>")
+
+COMMANDS = {
+    "list": cmd_list,
+    "set": cmd_set,
+    "unset": cmd_unset,
+    "install-all": cmd_install_all,
+    "status": cmd_status,
+}
+
+if __name__ == "__main__":
+    if not TDECK_HOME.exists():
+        print("\033[0;31mError: TermuxDeck OS not installed.\033[0m")
+        print("Run: curl -sL https://.../install.sh | bash")
+        sys.exit(1)
+
+    args = sys.argv[1:]
+    if not args or args[0] not in COMMANDS:
+        print("\033[1mTermuxDeck Profile Manager\033[0m")
+        print(f"Usage: tdeckprof <command> [args]")
+        print("\nCommands:")
+        print("  list         Show available profiles")
+        print("  set <name>   Install and activate a profile")
+        print("  unset <name> Deactivate a profile")
+        print("  install-all  Install all profiles")
+        print("  status       Show active profiles")
+        sys.exit(1)
+
+    COMMANDS[args[0]](args[1:])

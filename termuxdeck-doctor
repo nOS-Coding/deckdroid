@@ -87,7 +87,7 @@ except Exception:
 
 # Deck tools
 print(f"\n{BOLD}Deck Tools{RESET}")
-tools = ["deckbat","deckping","deckid","deckwifi","decklocate","deckclock","decksniff","decknote","tdeckconf"]
+tools = ["deckbat","deckping","deckid","deckwifi","decklocate","deckclock","decksniff","decknote","deckbrowse","deckdisk","tdeckconf","tdeckprof"]
 for t in tools:
     check(f"{t}", shutil.which(t) is not None, f"{t} not in PATH")
 

@@ -1,68 +1,134 @@
-#!/usr/bin/env python3
-"""deckwifi — WiFi network scanner"""
-import sys, json, subprocess
+#!/data/data/com.termux/files/usr/bin/bash
+# deckwifi — Proactive WiFi environment scanner for TermuxDeck OS
+# Usage: deckwifi [--json] [--log] [--sort signal|ssid]
 
-JSON_OUT = "--json" in sys.argv
-GREEN = "\033[0;32m"; YELLOW = "\033[1;33m"; RED = "\033[0;31m"; RESET = "\033[0m"; BOLD = "\033[1m"
+LOG_DIR="$HOME/.termuxdeck/logs"
+JSON_OUT=false
+DO_LOG=false
+SORT_BY="signal"
 
-def scan_termux():
-    try:
-        r = subprocess.run(["termux-wifi-scaninfo"], capture_output=True, text=True, timeout=10)
-        return json.loads(r.stdout)
-    except Exception:
-        return None
+i=1
+while [ $i -le $# ]; do
+  eval "arg=\${$i}"
+  case $arg in
+    --json) JSON_OUT=true ;;
+    --log)  DO_LOG=true ;;
+    --sort) i=$((i+1)); eval "SORT_BY=\${$i}" ;;
+  esac
+  i=$((i+1))
+done
 
-def scan_linux():
-    """Fallback: use iw/iwlist"""
-    try:
-        r = subprocess.run(["iw", "dev"], capture_output=True, text=True)
-        iface = None
-        for line in r.stdout.splitlines():
-            if "Interface" in line:
-                iface = line.split()[-1]
-                break
-        if not iface:
-            return None
-        r2 = subprocess.run(["iwlist", iface, "scan"], capture_output=True, text=True)
-        # Simple parse
-        networks = []
-        current = {}
-        for line in r2.stdout.splitlines():
-            line = line.strip()
-            if line.startswith("Cell"):
-                if current:
-                    networks.append(current)
-                current = {}
-            if "ESSID:" in line:
-                current["ssid"] = line.split('"')[1] if '"' in line else ""
-            if "Signal level" in line:
-                try:
-                    current["rssi"] = int(line.split("=")[-1].split(" ")[0])
-                except Exception:
-                    pass
-            if "Encryption key:" in line:
-                current["capabilities"] = "WPA" if "on" in line else "Open"
-        if current:
-            networks.append(current)
-        return networks
-    except Exception:
-        return None
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-networks = scan_termux() or scan_linux() or []
+# ── Current connection info ───────────────────────────────────────────────────
+CURRENT_SSID="N/A"; CURRENT_BSSID="N/A"; CURRENT_IP="N/A"
+if command -v termux-wifi-connectioninfo &>/dev/null; then
+  CONN=$(termux-wifi-connectioninfo 2>/dev/null)
+  if [ -n "$CONN" ]; then
+    CURRENT_SSID=$(echo "$CONN"  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('ssid','N/A'))" 2>/dev/null)
+    CURRENT_BSSID=$(echo "$CONN" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('bssid','N/A'))" 2>/dev/null)
+    CURRENT_IP=$(echo "$CONN"    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('ip','N/A'))" 2>/dev/null)
+  fi
+fi
 
-if JSON_OUT:
-    print(json.dumps(networks, indent=2))
-else:
-    print(f"\n{BOLD}deckwifi — Nearby Networks{RESET}")
-    if not networks:
-        print("  No networks found (Termux:API required for full scan)")
-    else:
-        print(f"  {'SSID':<30} {'Signal':>7}  {'Security'}")
-        print(f"  {'─'*30} {'─'*7}  {'─'*10}")
-        for net in networks[:20]:
-            ssid = net.get("ssid", "<hidden>") or "<hidden>"
-            rssi = net.get("rssi", "?")
-            caps = net.get("capabilities", "?")
-            color = GREEN if isinstance(rssi, int) and rssi > -60 else (YELLOW if isinstance(rssi, int) and rssi > -75 else RED)
-            print(f"  {ssid:<30} {color}{rssi:>5} dBm{RESET}  {caps}")
+# ── Scan for nearby networks ──────────────────────────────────────────────────
+if command -v termux-wifi-scaninfo &>/dev/null; then
+  SCAN_RAW=$(termux-wifi-scaninfo 2>/dev/null)
+  NETWORKS=$(echo "$SCAN_RAW" | python3 - <<'PYEOF'
+import sys, json
+
+try:
+    data = json.load(sys.stdin)
+except:
+    print("[]")
+    sys.exit()
+
+nets = []
+for n in data:
+    ssid       = n.get('ssid', '<hidden>')
+    bssid      = n.get('bssid', 'N/A')
+    signal     = n.get('level', 0)
+    freq       = n.get('frequency', 0)
+    caps       = n.get('capabilities', '')
+    # Determine band
+    band = '5GHz' if freq >= 5000 else '2.4GHz'
+    # Determine security
+    if 'WPA3' in caps:    sec = 'WPA3'
+    elif 'WPA2' in caps:  sec = 'WPA2'
+    elif 'WPA' in caps:   sec = 'WPA'
+    elif 'WEP' in caps:   sec = 'WEP'
+    else:                  sec = 'Open'
+    nets.append({'ssid': ssid, 'bssid': bssid, 'signal': signal, 'band': band, 'security': sec, 'freq': freq})
+
+# Sort by signal descending
+nets.sort(key=lambda x: x['signal'], reverse=True)
+print(json.dumps(nets, indent=2))
+PYEOF
+)
+else
+  NETWORKS="[]"
+  # Fallback: try iw if available
+  if command -v iw &>/dev/null; then
+    echo -e "\033[0;33m[deckwifi] Termux:API unavailable, falling back to iw scan (may require root)\033[0m" >&2
+  else
+    echo -e "\033[0;31m[deckwifi] Termux:API not available. Install Termux:API app and run: pkg install termux-api\033[0m" >&2
+  fi
+fi
+
+NET_COUNT=$(echo "$NETWORKS" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+
+if $JSON_OUT; then
+  python3 -c "
+import json
+print(json.dumps({
+  'timestamp': '$TIMESTAMP',
+  'current': {
+    'ssid':  '$CURRENT_SSID',
+    'bssid': '$CURRENT_BSSID',
+    'ip':    '$CURRENT_IP',
+  },
+  'scan_count': $NET_COUNT,
+  'networks': $NETWORKS,
+}, indent=2))
+"
+else
+  C='\033[0;36m'; G='\033[0;32m'; Y='\033[0;33m'; R='\033[0;31m'; M='\033[0;35m'; N='\033[0m'; B='\033[1m'
+  echo -e "${B}${C}╔══════════════════════════════════════╗${N}"
+  echo -e "${B}${C}║         deckwifi  v1.0               ║${N}"
+  echo -e "${B}${C}╚══════════════════════════════════════╝${N}"
+  echo -e "${B}${M}── Connected ────────────────────────────${N}"
+  echo -e "  ${B}SSID  :${N} $CURRENT_SSID"
+  echo -e "  ${B}BSSID :${N} $CURRENT_BSSID"
+  echo -e "  ${B}IP    :${N} $CURRENT_IP"
+  echo -e "${B}${M}── Nearby Networks ($NET_COUNT found) ────────${N}"
+
+  echo "$NETWORKS" | python3 - <<'PYEOF'
+import sys, json
+
+try:
+    nets = json.load(sys.stdin)
+except:
+    nets = []
+
+RESET='\033[0m'; BOLD='\033[1m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'
+
+for n in nets:
+    sig = n['signal']
+    if sig >= -50:   bar = f"{GREEN}▓▓▓▓▓{RESET}"
+    elif sig >= -65: bar = f"{GREEN}▓▓▓▓{RESET}░"
+    elif sig >= -75: bar = f"{YELLOW}▓▓▓{RESET}░░"
+    elif sig >= -85: bar = f"{YELLOW}▓▓{RESET}░░░"
+    else:            bar = f"{RED}▓{RESET}░░░░"
+
+    sec_color = GREEN if n['security'] != 'Open' else RED
+    print(f"  {BOLD}{n['ssid'][:28]:<28}{RESET}  {bar}  {sig:>4}dBm  {CYAN}{n['band']:<6}{RESET}  {sec_color}{n['security']}{RESET}")
+    print(f"  {'':28}  {n['bssid']}  {n['freq']}MHz")
     print()
+PYEOF
+  echo -e "  ${B}Time  :${N} $TIMESTAMP"
+fi
+
+if $DO_LOG; then
+  mkdir -p "$LOG_DIR"
+  echo "{\"ts\":\"$TIMESTAMP\",\"tool\":\"deckwifi\",\"connected_ssid\":\"$CURRENT_SSID\",\"scan_count\":$NET_COUNT}" >> "$LOG_DIR/tools.log"
+fi

@@ -1,0 +1,27 @@
+# TermuxDeck OS — Hacker Theme
+# Prompt style for security researchers
+
+format = """
+┌─$directory──$character
+└─$character """
+
+[profile]
+name = "hacker"
+prompt_color = "32"
+accent_color = "36"
+background = "black"
+
+[attery]
+format = "⚡ $percentage%"
+success_color = "green"
+warning_color = "yellow"
+error_color = "red"
+
+[character]
+success = "➜"
+error = "✗"
+symbol = "❯"
+
+[status]
+success_color = "green"
+error_color = "red"

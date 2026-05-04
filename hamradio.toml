@@ -1,0 +1,21 @@
+# TermuxDeck OS — Amateur Radio Theme
+# Same as radio, for ham ops
+
+format = """
+$directory $character
+└─$character """
+
+[profile]
+name = "hamradio"
+prompt_color = "34"
+accent_color = "33"
+background = "navy"
+
+[character]
+success = "📻"
+error = "⚠"
+symbol = "❯"
+
+[status]
+success_color = "33"
+error_color = "red"

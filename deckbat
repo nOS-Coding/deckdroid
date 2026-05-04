@@ -1,57 +1,73 @@
-#!/usr/bin/env python3
-"""deckbat — Battery status for TermuxDeck OS"""
-import sys, json, subprocess, os
+#!/data/data/com.termux/files/usr/bin/bash
+# deckbat — Advanced battery metrics for TermuxDeck OS
+# Usage: deckbat [--json] [--log] [--alert <percent>]
 
-JSON_OUT = "--json" in sys.argv
-LOG_OUT  = "--log" in sys.argv
+LOG_DIR="$HOME/.termuxdeck/logs"
+JSON_OUT=false
+DO_LOG=false
+ALERT_THRESHOLD=-1
 
-def get_battery_termux():
-    try:
-        result = subprocess.run(["termux-battery-status"], capture_output=True, text=True, timeout=5)
-        return json.loads(result.stdout)
-    except Exception:
-        return None
+i=1
+while [ $i -le $# ]; do
+  eval "arg=\${$i}"
+  case $arg in
+    --json)  JSON_OUT=true ;;
+    --log)   DO_LOG=true ;;
+    --alert) i=$((i+1)); eval "ALERT_THRESHOLD=\${$i}" ;;
+  esac
+  i=$((i+1))
+done
 
-def get_battery_linux():
-    """Fallback: read from /sys/class/power_supply"""
-    base = "/sys/class/power_supply"
-    data = {}
-    try:
-        for name in os.listdir(base):
-            path = f"{base}/{name}"
-            t = open(f"{path}/type").read().strip() if os.path.exists(f"{path}/type") else ""
-            if t == "Battery":
-                data["percentage"] = int(open(f"{path}/capacity").read()) if os.path.exists(f"{path}/capacity") else None
-                status_raw = open(f"{path}/status").read().strip() if os.path.exists(f"{path}/status") else "Unknown"
-                data["status"] = status_raw.lower()
-                if os.path.exists(f"{path}/temp"):
-                    data["temperature"] = int(open(f"{path}/temp").read()) / 10
-                break
-    except Exception:
-        pass
-    return data if data else None
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-bat = get_battery_termux() or get_battery_linux() or {}
+if command -v termux-battery-status &>/dev/null; then
+  RAW=$(termux-battery-status 2>/dev/null)
+  LEVEL=$(echo   "$RAW" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('percentage','N/A'))" 2>/dev/null)
+  STATUS=$(echo  "$RAW" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','N/A'))" 2>/dev/null)
+  TEMP=$(echo    "$RAW" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('temperature','N/A'))" 2>/dev/null)
+  VOLTAGE=$(echo "$RAW" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('voltage','N/A'))" 2>/dev/null)
+  HEALTH=$(echo  "$RAW" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('health','N/A'))" 2>/dev/null)
+  PLUGGED=$(echo "$RAW" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('plugged','N/A'))" 2>/dev/null)
+else
+  SYS="/sys/class/power_supply/battery"
+  LEVEL=$(cat "$SYS/capacity" 2>/dev/null || echo "N/A")
+  STATUS=$(cat "$SYS/status"  2>/dev/null || echo "N/A")
+  T=$(cat "$SYS/temp" 2>/dev/null)
+  TEMP=${T:+$(awk "BEGIN {printf \"%.1f\", $T/10}")}; TEMP=${TEMP:-N/A}
+  V=$(cat "$SYS/voltage_now" 2>/dev/null)
+  VOLTAGE=${V:+$(awk "BEGIN {printf \"%.3f\", $V/1000000}")}; VOLTAGE=${VOLTAGE:-N/A}
+  HEALTH=$(cat "$SYS/health" 2>/dev/null || echo "N/A")
+  PLUGGED="N/A"
+fi
 
-if JSON_OUT:
-    print(json.dumps(bat, indent=2))
-else:
-    GREEN = "\033[0;32m"; RED = "\033[0;31m"; YELLOW = "\033[1;33m"; RESET = "\033[0m"; BOLD = "\033[1m"
-    pct = bat.get("percentage", "?")
-    status = bat.get("status", "unknown")
-    temp = bat.get("temperature", "?")
+if $JSON_OUT; then
+  python3 -c "
+import json, sys
+print(json.dumps({'timestamp':'$TIMESTAMP','level':'$LEVEL','status':'$STATUS',
+  'temperature_c':'$TEMP','voltage_v':'$VOLTAGE','health':'$HEALTH','plugged':'$PLUGGED'},indent=2))
+"
+else
+  R='\033[0;31m'; Y='\033[0;33m'; G='\033[0;32m'; C='\033[0;36m'; N='\033[0m'; B='\033[1m'
+  if [ "$LEVEL" != "N/A" ] 2>/dev/null; then
+    [ "$LEVEL" -le 15 ] && LC=$R || { [ "$LEVEL" -le 40 ] && LC=$Y || LC=$G; }
+  else LC=$N; fi
+  echo -e "${B}${C}╔══════════════════════════╗${N}"
+  echo -e "${B}${C}║      deckbat  v1.0       ║${N}"
+  echo -e "${B}${C}╚══════════════════════════╝${N}"
+  echo -e "  ${B}Level   :${N}  ${LC}${LEVEL}%${N}"
+  echo -e "  ${B}Status  :${N}  $STATUS"
+  echo -e "  ${B}Health  :${N}  $HEALTH"
+  echo -e "  ${B}Temp    :${N}  ${TEMP}°C"
+  echo -e "  ${B}Voltage :${N}  ${VOLTAGE} V"
+  echo -e "  ${B}Plugged :${N}  $PLUGGED"
+  echo -e "  ${B}Time    :${N}  $TIMESTAMP"
+  if [ "$ALERT_THRESHOLD" -gt 0 ] 2>/dev/null && [ "$LEVEL" != "N/A" ] && [ "$LEVEL" -le "$ALERT_THRESHOLD" ]; then
+    echo -e "\n  ${R}${B}⚠ ALERT: Battery at ${LEVEL}% (threshold: ${ALERT_THRESHOLD}%)${N}"
+    command -v termux-notification &>/dev/null && termux-notification --title "deckbat ALERT" --content "Battery at ${LEVEL}%" 2>/dev/null
+  fi
+fi
 
-    color = GREEN if isinstance(pct, int) and pct > 50 else (YELLOW if isinstance(pct, int) and pct > 20 else RED)
-    bar_len = int(pct / 5) if isinstance(pct, int) else 0
-    bar = "█" * bar_len + "░" * (20 - bar_len)
-
-    print(f"\n{BOLD}deckbat — Battery Status{RESET}")
-    print(f"  Level:  {color}[{bar}]{RESET} {pct}%")
-    print(f"  Status: {status}")
-    print(f"  Temp:   {temp}°C\n")
-
-if LOG_OUT:
-    import datetime, pathlib
-    log_path = pathlib.Path.home() / ".termuxdeck/logs/tools.log"
-    with open(log_path, "a") as f:
-        f.write(json.dumps({"time": datetime.datetime.utcnow().isoformat()+"Z", "tool": "deckbat", "result": bat}) + "\n")
+if $DO_LOG; then
+  mkdir -p "$LOG_DIR"
+  echo "{\"ts\":\"$TIMESTAMP\",\"tool\":\"deckbat\",\"level\":\"$LEVEL\",\"status\":\"$STATUS\",\"temp\":\"$TEMP\",\"voltage\":\"$VOLTAGE\",\"health\":\"$HEALTH\"}" >> "$LOG_DIR/tools.log"
+fi

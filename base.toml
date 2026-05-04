@@ -1,0 +1,21 @@
+# TermuxDeck OS — Base Theme
+# Default terminal aesthetic
+
+format = """
+$directory $character
+└─$character """
+
+[profile]
+name = "base"
+prompt_color = "green"
+accent = "cyan"
+background = "black"
+
+[character]
+success = "❯"
+error = "✗"
+symbol = "❯"
+
+[status]
+success_color = "green"
+error_color = "red"

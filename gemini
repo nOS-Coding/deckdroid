@@ -1,48 +1,26 @@
 #!/usr/bin/env python3
 """gemini — TermuxDeck AI assistant wrapper"""
-import os, sys, json, pathlib, subprocess
-
-HOME = pathlib.Path.home()
-CFG_PATH = HOME / ".termuxdeck" / "config.json"
-
-def load_config():
-    if not CFG_PATH.exists():
-        return {}
-    try:
-        return json.loads(CFG_PATH.read_text())
-    except:
-        return {}
+import os, sys, subprocess, shutil
 
 def main():
-    cfg = load_config()
-    api_key = cfg.get("gemini", {}).get("api_key", "")
-    enabled = cfg.get("gemini", {}).get("enabled", False)
+    gemini_cmd = shutil.which("gemini-chat") or shutil.which("gemini")
 
-    if not api_key:
-        print("Gemini API key not found in ~/.termuxdeck/config.json")
-        key = input("Please enter your Gemini API key: ").strip()
-        if key:
-            # Update config using tdeckconf if available
-            subprocess.run(["tdeckconf", "set", "gemini.api_key", key])
-            subprocess.run(["tdeckconf", "set", "gemini.enabled", "true"])
-            api_key = key
-        else:
-            print("No API key provided. Aborting.")
+    if not gemini_cmd:
+        print("Gemini CLI not installed. Installing...")
+        result = subprocess.run(
+            ["npm", "install", "-g", "@google/gemini-cli"],
+            capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            print("Installation failed:")
+            print(result.stderr)
+            sys.exit(1)
+        gemini_cmd = shutil.which("gemini-chat") or shutil.which("gemini")
+        if not gemini_cmd:
+            print("Failed to find gemini after install.")
             sys.exit(1)
 
-    # Export API key for the underlying CLI
-    os.environ["GOOGLE_API_KEY"] = api_key
-    
-    # Check if @google/gemini-cli is installed
-    if subprocess.run(["command", "-v", "gemini-chat"], shell=True, capture_output=True).returncode != 0:
-        print("Gemini CLI package not found. Installing via npm...")
-        subprocess.run(["npm", "install", "-g", "@google/gemini-cli"])
-
-    # Pass all arguments to the real gemini-chat
-    try:
-        subprocess.run(["gemini-chat"] + sys.argv[1:])
-    except KeyboardInterrupt:
-        pass
+    os.execv(gemini_cmd, [gemini_cmd] + sys.argv[1:])
 
 if __name__ == "__main__":
     main()

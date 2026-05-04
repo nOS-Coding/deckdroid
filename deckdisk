@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+"""deckdisk — Disk management for TermuxDeck OS
+Usage: deckdisk [list|info|mount|unmount|format] [device] [mountpoint]
+Requires: Root for mount/unmount/format operations.
+"""
+import sys, os, subprocess, pathlib, json
+
+HOME = pathlib.Path.home()
+LOG_DIR = HOME / ".termuxdeck/logs"
+
+JSON_OUT = "--json" in sys.argv
+DO_LOG = "--log" in sys.argv
+
+GREEN = "\033[0;32m"; RED = "\033[0;31m"; YELLOW = "\033[1;33m"
+CYAN = "\033[0;36m"; BOLD = "\033[1m"; RESET = "\033[0m"
+
+def run_cmd(cmd, check=False):
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        return result.stdout, result.returncode
+    except Exception as e:
+        return str(e), 1
+
+def cmd_list(args):
+    """List all disks and partitions."""
+    disks = []
+    
+    out, _ = run_cmd(["lsblk", "-J", "-o", "NAME,SIZE,TYPE,MOUNTPOINT,RO"])
+    if out and "block" in out:
+        try:
+            data = json.loads(out)
+            for dev in data.get("blockdevices", []):
+                disks.append({
+                    "name": dev.get("name", ""),
+                    "size": dev.get("size", ""),
+                    "type": dev.get("type", ""),
+                    "mount": dev.get("mountpoint", ""),
+                    "ro": dev.get("ro", True)
+                })
+        except:
+            pass
+    
+    if not disks:
+        out, _ = run_cmd(["df", "-h"])
+        lines = out.split("\n")[1:]
+        for line in lines:
+            parts = line.split()
+            if len(parts) >= 6:
+                disks.append({
+                    "name": parts[0],
+                    "size": parts[1],
+                    "type": "disk",
+                    "mount": parts[5] if len(parts) > 5 else "",
+                    "ro": "ro" in line
+                })
+    
+    if JSON_OUT:
+        print(json.dumps({"disks": disks}, indent=2))
+    else:
+        print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════╗{RESET}")
+        print(f"{BOLD}{CYAN}║         deckdisk — Storage            ║{RESET}")
+        print(f"{BOLD}{CYAN}╚══════════════════════════════════════╝{RESET}")
+        print(f"\n{BOLD}Available Disks:{RESET}")
+        for d in disks:
+            name = d.get("name", "N/A")
+            size = d.get("size", "N/A")
+            mnt = d.get("mount", "")
+            ro = "🔒" if d.get("ro") else ""
+            status = f"{GREEN}{mnt}{RESET}" if mnt else f"{YELLOW}unmounted{RESET}"
+            print(f"  {BOLD}{name:<20}{RESET}  {size:<10}  {status} {ro}")
+        print()
+
+def cmd_info(args):
+    """Show detailed storage info."""
+    out, _ = run_cmd(["df", "-h"])
+    out2, _ = run_cmd(["du", "-sh", str(HOME / ".termuxdeck")])
+    
+    if JSON_OUT:
+        info = {"partitions": [], "termuxdeck_usage": out2.strip().split()[0] if out2 else "N/A"}
+        for line in out.split("\n")[1:]:
+            parts = line.split()
+            if len(parts) >= 6:
+                info["partitions"].append({
+                    "filesystem": parts[0],
+                    "size": parts[1],
+                    "used": parts[2],
+                    "available": parts[3],
+                    "use_percent": parts[4],
+                    "mount": parts[5]
+                })
+        print(json.dumps(info, indent=2))
+    else:
+        print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════╗{RESET}")
+        print(f"{BOLD}{CYAN}║         deckdisk — Info                ║{RESET}")
+        print(f"{BOLD}{CYAN}╚══════════════════════════════════════╝{RESET}")
+        print(f"\n{BOLD}Disk Usage:{RESET}")
+        print(out)
+        print(f"\n{BOLD}TermuxDeck Usage:{RESET}  {out2.strip() if out2 else 'N/A'}")
+        print()
+
+def cmd_mount(args):
+    """Mount a device (requires root)."""
+    if len(args) < 2:
+        print(f"{RED}Usage: deckdisk mount <device> <mountpoint>{RESET}")
+        print(f"  Example: deckdisk mount /dev/block/sda1 /sdcard/external")
+        return
+    
+    device, mountpoint = args[0], args[1]
+    
+    if os.geteuid() != 0:
+        print(f"{YELLOW}⚠ Mount requires root. Run with 'su' first.{RESET}")
+        print(f"  Attempting anyway...")
+    
+    out, code = run_cmd(["mount", device, mountpoint])
+    if code == 0:
+        print(f"{GREEN}✓ Mounted {device} at {mountpoint}{RESET}")
+    else:
+        print(f"{RED}✗ Failed: {out}{RESET}")
+
+def cmd_unmount(args):
+    """Unmount a device (requires root)."""
+    if len(args) < 1:
+        print(f"{RED}Usage: deckdisk unmount <device_or_mountpoint>{RESET}")
+        return
+    
+    target = args[0]
+    
+    if os.geteuid() != 0:
+        print(f"{YELLOW}⚠ Unmount requires root. Run with 'su' first.{RESET}")
+    
+    out, code = run_cmd(["umount", target])
+    if code == 0:
+        print(f"{GREEN}✓ Unmounted {target}{RESET}")
+    else:
+        print(f"{RED}✗ Failed: {out}{RESET}")
+
+def cmd_format(args):
+    """Format a partition (requires root)."""
+    if len(args) < 2:
+        print(f"{RED}Usage: deckdisk format <device> <filesystem>{RESET}")
+        print(f"  Filesystem: ext4, vfat, exfat, ntfs")
+        print(f"{YELLOW}⚠ WARNING: This will erase all data on the device!{RESET}")
+        confirm = input("Type 'yes' to continue: ")
+        if confirm.lower() != "yes":
+            print("Aborted.")
+            return
+    
+    device, fs = args[0], args[1]
+    
+    if os.geteuid() != 0:
+        print(f"{YELLOW}⚠ Format requires root. Run with 'su' first.{RESET}")
+        return
+    
+    mkfs_cmd = {
+        "ext4": ["mkfs.ext4", "-F", device],
+        "vfat": ["mkfs.vfat", "-F", "32", device],
+        "exfat": ["mkfs.exfat", device],
+        "ntfs": ["mkfs.ntfs", "-f", device],
+    }.get(fs.lower())
+    
+    if not mkfs_cmd:
+        print(f"{RED}Unknown filesystem: {fs}{RESET}")
+        return
+    
+    print(f"{YELLOW}Formatting {device} as {fs}...{RESET}")
+    out, code = run_cmd(mkfs_cmd)
+    if code == 0:
+        print(f"{GREEN}✓ Formatted successfully{RESET}")
+    else:
+        print(f"{RED}✗ Failed: {out}{RESET}")
+
+CMDS = {
+    "list": cmd_list,
+    "info": cmd_info,
+    "mount": cmd_mount,
+    "unmount": cmd_unmount,
+    "umount": cmd_unmount,
+    "format": cmd_format,
+}
+
+if __name__ == "__main__":
+    args = sys.argv[1:]
+    if not args or args[0] not in CMDS:
+        print(f"{BOLD}deckdisk — Disk Management{RESET}")
+        print(f"Usage: deckdisk <command> [args...]")
+        print(f"\nCommands:")
+        print(f"  {CYAN}list{RESET}              Show all disks/partitions")
+        print(f"  {CYAN}info{RESET}              Show disk usage info")
+        print(f"  {CYAN}mount{RESET} <dev> <mp>  Mount device (needs root)")
+        print(f"  {CYAN}unmount{RESET} <target>  Unmount device (needs root)")
+        print(f"  {CYAN}format{RESET} <dev> <fs>  Format device (needs root)")
+        print(f"\nOptions: --json --log")
+        sys.exit(1)
+    
+    CMDS[args[0]](args[1:])
+    
+    if DO_LOG:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(LOG_DIR / "tools.log", "a") as f:
+            f.write(json.dumps({"ts": subprocess.run(["date", "+%Y-%m-%dT%H:%M:%SZ"], capture_output=True, text=True).stdout.strip(), "tool": "deckdisk", "cmd": args[0]}) + "\n")

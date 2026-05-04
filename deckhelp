@@ -1,0 +1,227 @@
+#!/usr/bin/env python3
+"""deckhelp — Help utility for TermuxDeck OS"""
+import sys, pathlib, subprocess
+
+HOME = pathlib.Path.home()
+TDECK = HOME / ".termuxdeck"
+GREEN = "\033[0;32m"; YELLOW = "\033[1;33m"; CYAN = "\033[0;36m"; RESET = "\033[0m"; BOLD = "\033[1m"; DIM = "\033[2m"
+
+TOOLS = {
+    "deckbat": {
+        "category": "Cyberdeck Tools",
+        "desc": "Advanced battery metrics",
+        "usage": "deckbat [--json] [--log] [--alert <percent>]",
+        "examples": ["deckbat", "deckbat --json", "deckbat --alert 20"],
+    },
+    "deckping": {
+        "category": "Cyberdeck Tools",
+        "desc": "Multi-layer connectivity audit",
+        "usage": "deckping [--json] [--log] [--host <ip>]",
+        "examples": ["deckping", "deckping --host 8.8.8.8", "deckping --json"],
+    },
+    "deckid": {
+        "category": "Cyberdeck Tools",
+        "desc": "Deep device identity and network",
+        "usage": "deckid [--json] [--log] [--public]",
+        "examples": ["deckid", "deckid --public", "deckid --json"],
+    },
+    "deckwifi": {
+        "category": "Cyberdeck Tools",
+        "desc": "WiFi scanner with signal bars",
+        "usage": "deckwifi [--json] [--log] [--sort signal|ssid]",
+        "examples": ["deckwifi", "deckwifi --json", "deckwifi --sort signal"],
+    },
+    "decklocate": {
+        "category": "Cyberdeck Tools",
+        "desc": "GPS + cell tower triangulation",
+        "usage": "decklocate [--json] [--log] [--provider gps|network] [--track <sec>]",
+        "examples": ["decklocate", "decklocate --json", "decklocate --track 10"],
+    },
+    "deckclock": {
+        "category": "Cyberdeck Tools",
+        "desc": "Multi-timezone world clock",
+        "usage": "deckclock [--json]",
+        "examples": ["deckclock", "deckclock --json"],
+    },
+    "decksniff": {
+        "category": "Cyberdeck Tools",
+        "desc": "tcpdump wrapper with profiles",
+        "usage": "decksniff [http|dns|arp|all] [-i <iface>] [--log]",
+        "examples": ["decksniff", "decksniff http", "decksniff all --log"],
+    },
+    "decknote": {
+        "category": "Cyberdeck Tools",
+        "desc": "Plain-text markdown notes",
+        "usage": "decknote <new|list|search|view|delete> [args]",
+        "examples": ["decknote new 'my note'", "decknote list", "decknote search termux"],
+    },
+    "deckbrowse": {
+        "category": "Cyberdeck Tools",
+        "desc": "Universal terminal browser",
+        "usage": "deckbrowse [url|search] [--engine <name>]",
+        "examples": ["deckbrowse", "deckbrowse github", "deckbrowse python tutorial"],
+    },
+    "deckdisk": {
+        "category": "Cyberdeck Tools",
+        "desc": "Disk management (list/mount/format)",
+        "usage": "deckdisk <list|info|mount|unmount|format> [args]",
+        "examples": ["deckdisk list", "deckdisk info", "deckdisk format /dev/sda1 ext4"],
+    },
+    "decklog": {
+        "category": "Cyberdeck Tools",
+        "desc": "Log viewer for TermuxDeck",
+        "usage": "decklog <list|view|clear> [name]",
+        "examples": ["decklog list", "decklog view tools", "decklog clear all"],
+    },
+    "deckclean": {
+        "category": "Cyberdeck Tools",
+        "desc": "Storage cleanup utility",
+        "usage": "deckclean <check|logs|trash|all>",
+        "examples": ["deckclean check", "deckclean logs", "deckclean all"],
+    },
+    "deckupdate": {
+        "category": "Cyberdeck Tools",
+        "desc": "Check and auto-update TermuxDeck OS",
+        "usage": "deckupdate <check|auto|upgrade|status>",
+        "examples": ["deckupdate check", "deckupdate auto on", "deckupdate upgrade"],
+    },
+    "decksetup": {
+        "category": "Cyberdeck Tools",
+        "desc": "First-run setup wizard",
+        "usage": "decksetup",
+        "examples": ["decksetup", "decksetup status"],
+    },
+    "decktheme": {
+        "category": "Cyberdeck Tools",
+        "desc": "Theme manager",
+        "usage": "decktheme <list|set> [name]",
+        "examples": ["decktheme list", "decktheme set ocean"],
+    },
+    "deckmenu": {
+        "category": "Cyberdeck Tools",
+        "desc": "Interactive TUI launcher",
+        "usage": "deckmenu",
+        "examples": ["deckmenu"],
+    },
+    "gemini": {
+        "category": "Cyberdeck Tools",
+        "desc": "AI assistant (Gemini CLI)",
+        "usage": "gemini [args]",
+        "examples": ["gemini", "gemini --help"],
+    },
+    "tdeckconf": {
+        "category": "Repository Tools",
+        "desc": "Config manager",
+        "usage": "tdeckconf <get|set|list|validate|reset> [args]",
+        "examples": ["tdeckconf list", "tdeckconf set theme.name ghost", "tdeckconf get version"],
+    },
+    "tdeckprof": {
+        "category": "Repository Tools",
+        "desc": "Profile manager",
+        "usage": "tdeckprof <list|set|unset|install-all|status> [args]",
+        "examples": ["tdeckprof list", "tdeckprof set hacker", "tdeckprof status"],
+    },
+    "termuxdeck-doctor": {
+        "category": "Repository Tools",
+        "desc": "System health audit",
+        "usage": "termuxdeck-doctor [--fix]",
+        "examples": ["termuxdeck-doctor", "termuxdeck-doctor --fix"],
+    },
+    "termuxdeck-sync": {
+        "category": "Repository Tools",
+        "desc": "Git-backed config sync",
+        "usage": "termuxdeck-sync <init|push|pull> [args]",
+        "examples": ["termuxdeck-sync init https://github.com/user/dotfiles", "termuxdeck-sync push"],
+    },
+    "termuxdeck-web": {
+        "category": "Repository Tools",
+        "desc": "Local web dashboard",
+        "usage": "termuxdeck-web",
+        "examples": ["termuxdeck-web"],
+    },
+    "termuxdeck-plugin": {
+        "category": "Repository Tools",
+        "desc": "Plugin registry manager",
+        "usage": "termuxdeck-plugin <register|unregister|list> [name]",
+        "examples": ["termuxdeck-plugin list", "termuxdeck-plugin register myplugin"],
+    },
+    "termuxdeck-vault": {
+        "category": "Repository Tools",
+        "desc": "GPG encryption for config",
+        "usage": "termuxdeck-vault <encrypt|decrypt> <value>",
+        "examples": ["termuxdeck-vault encrypt mysecret", "termuxdeck-vault decrypt <encrypted>"],
+    },
+}
+
+def cmd_list():
+    print(f"\n{BOLD}{CYAN}╔═══════════════════════════════════════════════════════════╗{RESET}")
+    print(f"{BOLD}{CYAN}║              TermuxDeck OS — Help Index                      ║{RESET}")
+    print(f"{BOLD}{CYAN}╚═══════════════════════════════════════════════════════════╝{RESET}\n")
+    
+    current_cat = None
+    for name in sorted(TOOLS.keys()):
+        info = TOOLS[name]
+        if info["category"] != current_cat:
+            current_cat = info["category"]
+            print(f"\n{BOLD}{YELLOW}── {current_cat}{RESET}\n")
+        print(f"  {CYAN}{name:<22}{RESET}  {info['desc']}")
+    print(f"\n{BOLD}Usage:{RESET} deckhelp <tool>     Show detailed help")
+    print(f"        {BOLD}deckhelp all{RESET}    Show all tool details")
+    print(f"        {BOLD}deckhelp --cat{RESET}  Show by category")
+    print()
+
+def cmd_tool(name):
+    if name not in TOOLS:
+        print(f"{YELLOW}Unknown tool: {name}{RESET}")
+        print(f"Run 'deckhelp' to list all tools.")
+        return
+    
+    info = TOOLS[name]
+    print(f"\n{BOLD}{CYAN}── {name}{RESET}")
+    print(f"  Category:  {info['category']}")
+    print(f"  Description: {info['desc']}")
+    print(f"\n  {BOLD}Usage:{RESET}")
+    print(f"    {info['usage']}")
+    print(f"\n  {BOLD}Examples:{RESET}")
+    for ex in info["examples"]:
+        print(f"    {CYAN}$ {ex}{RESET}")
+    print()
+
+def cmd_all():
+    for name in sorted(TOOLS.keys()):
+        cmd_tool(name)
+
+def cmd_by_category():
+    cats = {}
+    for name, info in TOOLS.items():
+        cat = info["category"]
+        if cat not in cats:
+            cats[cat] = []
+        cats[cat].append(name)
+    
+    for cat, tools in cats.items():
+        print(f"\n{BOLD}{YELLOW}══ {cat} ══════════════════════════════════════════════{RESET}\n")
+        for t in tools:
+            print(f"  {CYAN}{t:<22}{RESET}  {TOOLS[t]['desc']}")
+    print()
+
+CMDS = {"list": cmd_list, "all": cmd_all, "--cat": cmd_by_category}
+
+if __name__ == "__main__":
+    args = sys.argv[1:]
+    
+    if not args:
+        cmd_list()
+    elif args[0] in CMDS:
+        CMDS[args[0]]()
+    elif args[0] in TOOLS:
+        cmd_tool(args[0])
+    elif args[0] == "--help" or args[0] == "-h":
+        print(f"{BOLD}deckhelp — TermuxDeck OS Help{RESET}")
+        print(f"Usage: deckhelp [tool name]")
+        print(f"       deckhelp list      # List all tools")
+        print(f"       deckhelp all      # Show all details")
+        print(f"       deckhelp --cat    # Group by category")
+    else:
+        print(f"{YELLOW}Unknown: {args[0]}{RESET}")
+        cmd_list()

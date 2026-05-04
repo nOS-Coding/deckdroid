@@ -1,0 +1,21 @@
+# TermuxDeck OS — IoT Theme
+# Tech circuit green
+
+format = """
+$directory $character
+└─$character """
+
+[profile]
+name = "iot"
+prompt_color = "36"
+accent_color = "32"
+background = "black"
+
+[character]
+success = "⚡"
+error = "⚠"
+symbol = "❯"
+
+[status]
+success_color = "36"
+error_color = "red"

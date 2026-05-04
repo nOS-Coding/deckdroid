@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""deckmenu — Interactive TUI launcher for TermuxDeck OS"""
+import sys, subprocess, os, pathlib
+
+HOME = pathlib.Path.home()
+TDECK = HOME / ".termuxdeck"
+GREEN = "\033[0;32m"; YELLOW = "\033[1;33m"; CYAN = "\033[0;36m"; RESET = "\033[0m"; BOLD = "\033[1m"; DIM = "\033[2m"
+
+TOOLS = {
+    "1": {"name": "deckbat", "desc": "Battery status"},
+    "2": {"name": "deckping", "desc": "Network connectivity"},
+    "3": {"name": "deckid", "desc": "Device identity"},
+    "4": {"name": "deckwifi", "desc": "WiFi scanner"},
+    "5": {"name": "decklocate", "desc": "GPS location"},
+    "6": {"name": "deckclock", "desc": "World clock"},
+    "7": {"name": "deckbrowse", "desc": "Terminal browser"},
+    "8": {"name": "deckdisk", "desc": "Disk management"},
+    "9": {"name": "decknote", "desc": "Notes system"},
+    "a": {"name": "decklog", "desc": "View logs"},
+    "b": {"name": "deckclean", "desc": "Storage cleanup"},
+    "c": {"name": "deckupdate", "desc": "Check updates"},
+    "d": {"name": "decktheme", "desc": "Theme manager"},
+    "e": {"name": "termuxdeck-web", "desc": "Web dashboard"},
+    "f": {"name": "termuxdeck-doctor", "desc": "System doctor"},
+    "g": {"name": "tdeckconf", "desc": "Config editor"},
+    "h": {"name": "tdeckprof", "desc": "Profile manager"},
+    "i": {"name": "deckhelp", "desc": "Help & docs"},
+    "0": {"name": "exit", "desc": "Exit to shell"},
+}
+
+def clear_screen():
+    os.system("clear" if os.name != "nt" else "cls")
+
+def show_menu():
+    clear_screen()
+    print(f"{BOLD}{CYAN}")
+    print("""
+   ████████╗██████╗ ███████╗ ██████╗██╗  ██╗
+      ██╔══╝██╔══██╗██╔════╝██╔════╝██║ ██╔╝
+      ██║   ██║  ██║█████╗  ██║     █████╔╝ 
+      ██║   ██║  ██║██╔══╝  ██║     ██╔═██╗ 
+      ██║   ██████╔╝███████╗╚██████╗██║  ██╗
+      ╚═╝   ╚═════╝ ╚══════╝ ╚═════╝╚═╝  ╚═╝
+         TermuxDeck OS — Command Launcher
+""")
+    print(f"{RESET}")
+    print(f"{BOLD}{YELLOW}── Cyberdeck Tools ──────────────────────────────────{RESET}\n")
+    
+    cols = 3
+    keys = list(TOOLS.keys())[:9]
+    for i in range(0, len(keys), cols):
+        row = keys[i:i+cols]
+        line = ""
+        for k in row:
+            t = TOOLS[k]
+            line += f"  [{CYAN}{k}{RESET}] {t['name']:<14} "
+        print(line)
+    
+    print(f"\n{BOLD}{CYAN}── Repository Tools ─────────────────────────────────{RESET}\n")
+    
+    repo_keys = ["a", "b", "c", "d", "e", "f", "g", "h", "i"]
+    for i in range(0, len(repo_keys), 3):
+        row = repo_keys[i:i+3]
+        line = ""
+        for k in row:
+            t = TOOLS[k]
+            line += f"  [{CYAN}{k}{RESET}] {t['name']:<20} "
+        print(line)
+    
+    print(f"\n{BOLD}{YELLOW}── System ───────────────────────────────────────────{RESET}\n")
+    print(f"  [{CYAN}0{RESET}] exit / quit")
+    print(f"\n{BOLD}Enter choice:{RESET} ", end="")
+    
+    return input().strip().lower()
+
+def run_tool(name):
+    if name == "exit":
+        print(f"\n{DIM}Stay rad, deckie.{RESET}\n")
+        sys.exit(0)
+    
+    tool_path = TDECK / "tools" / name
+    
+    if tool_path.exists():
+        if tool_path.suffix == ".py":
+            os.execv(sys.executable, [sys.executable, str(tool_path)])
+        else:
+            os.execv(str(tool_path), [name])
+    else:
+        # Try system PATH
+        try:
+            os.execvp(name, [name])
+        except FileNotFoundError:
+            print(f"{YELLOW}Tool not found: {name}{RESET}")
+            input("Press Enter to continue...")
+
+def main():
+    while True:
+        choice = show_menu()
+        
+        if choice in TOOLS:
+            tool_name = TOOLS[choice]["name"]
+            print(f"\n{DIM}Launching {tool_name}...{RESET}\n")
+            run_tool(tool_name)
+        elif choice == "":
+            continue
+        else:
+            print(f"\n{YELLOW}Invalid choice: {choice}{RESET}")
+            input("Press Enter to continue...")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(f"\n{DIM}Stay rad, deckie.{RESET}\n")
+        sys.exit(0)

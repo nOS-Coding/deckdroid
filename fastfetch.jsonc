@@ -2,11 +2,9 @@
 {
   "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
   "logo": {
-    "type": "builtin",
-    "source": "android",
-    "color": {
-      "1": "green"
-    }
+    "type": "file",
+    "source": "~/.termuxdeck/ascii-logo.txt",
+    "color": "green"
   },
   "display": {
     "separator": " ❯ ",
@@ -15,7 +13,7 @@
   "modules": [
     {
       "type": "custom",
-      "format": "\n{#1}╔══ {#2}TermuxDeck OS{#1} ══════════════════════════╗{#reset}"
+      "format": "\n{#1}╔═══════════════════════════════════════════════════╗{#reset}\n{#1}║{#reset}                   {#2}TermuxDeck OS{#1}                      ║{#reset}\n{#1}║{#reset}              Any device. Any arch. One terminal.      ║{#reset}\n{#1}╚═══════════════════════════════════════════════════╝{#reset}"
     },
     { "type": "os",       "key": "  OS     " },
     { "type": "host",     "key": "  Device " },
@@ -27,10 +25,6 @@
     { "type": "disk",     "key": "  Disk   ", "key2": "/" },
     { "type": "battery",  "key": "  Battery" },
     { "type": "localip",  "key": "  IP     " },
-    { "type": "uptime",   "key": "  Uptime " },
-    {
-      "type": "custom",
-      "format": "{#1}╚═══════════════════════════════════════════════╝{#reset}"
-    }
+    { "type": "uptime",   "key": "  Uptime " }
   ]
 }
