@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""decktheme — Theme manager for TermuxDeck OS"""
+"""decktheme — Theme manager for DeckDroid"""
 import sys, json, pathlib, shutil
 
 HOME = pathlib.Path.home()
-TDECK = HOME / ".termuxdeck"
-CFG = TDECK / "config.json"
-THEMES_DIR = TDECK / "themes"
+DDROID = HOME / ".deckdroid"
+CFG = DDROID / "config.json"
+THEMES_DIR = DDROID / "themes"
 
 GREEN = "\033[0;32m"; YELLOW = "\033[1;33m"; CYAN = "\033[0;36m"; RESET = "\033[0m"; BOLD = "\033[1m"; MAGENTA = "\033[0;35m"
 
@@ -39,10 +39,8 @@ def save_cfg(cfg):
     CFG.write_text(json.dumps(cfg, indent=2))
 
 def apply_starship_theme(theme_name, is_profile=False):
-    """Apply theme to starship.toml"""
-    starship_file = TDECK / "starship.toml"
+    starship_file = DDROID / "starship.toml"
     
-    theme_config = ""
     if is_profile:
         ptheme = PROFILE_THEMES.get(theme_name, {})
         color = ptheme.get("color", "green")
@@ -64,18 +62,17 @@ error_color = 'red'
     
     if starship_file.exists():
         content = starship_file.read_text()
-        # Remove existing theme section if exists
-        if "[profile]" in content:
+        if "[character]" in content:
             lines = content.split("\n")
             new_lines = []
-            in_profile = False
+            in_theme = False
             for line in lines:
                 if line.strip().startswith("["):
-                    in_profile = False
-                if line.strip() == "[profile]":
-                    in_profile = True
+                    in_theme = False
+                if line.strip() == "[character]":
+                    in_theme = True
                     continue
-                if not in_profile:
+                if not in_theme:
                     new_lines.append(line)
             content = "\n".join(new_lines)
         
@@ -95,7 +92,7 @@ def cmd_list(args):
         else:
             print(f"    {name}")
     
-    print(f"\n{BOLD}{MAGENTA}══ Profile Themes ════════════════════════════════{RESET}\n")
+    print(f"\n{BOLD}{MAGENTA}══ Profile Themes ══════════════════════════════{RESET}\n")
     for name in PROFILE_THEMES:
         if name in active_profiles:
             print(f"  {CYAN}● {name}{RESET}  (active profile)")

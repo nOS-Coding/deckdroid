@@ -16,7 +16,7 @@
 
 > **Any device. Any architecture. One terminal.**
 
-**DeckDroid** is a high-performance addon with special packages and a new UI built entirely for a cyberdeck. It transforms any Android device running Termux into a professional cyberdeck: hacker toolkit, developer workstation, or field terminal — fast and aesthatic.
+**DeckDroid** is a whole-new "add-on", "wrapper" or what you call it (I learn from mistakes guys) that is designed for Android-based cyberdecks. DeckDroid comes with a bunch of handy tools (the list is below) and also comes with a w3m wrapper, (Don't worry guys XSS injection is for better use of w3m) custom profiles for different use cases and a lot of UI themes for you customizers. It's fully open-source, and I am looking forward for your reviews! And again, sorry for that "OS" issue I had with the old TermuxDeck "OS".
 
 ---
 
@@ -56,7 +56,7 @@ This wizard helps you set:
 | `deckclock` | Multi-timezone world clock with NTP sync check |
 | `decksniff` | tcpdump wrapper with preset capture profiles |
 | `decknote` | Plain-text markdown notes system |
-| `deckbrowse` | Universal terminal browser (w3m/lynx/browsh) |
+| `deckbrowse` | Universal terminal browser (w3m/lynx/browsh) with XSS injection fix |
 | `deckdisk` | Disk management (list, mount, unmount, format) |
 | `decklog` | Log viewer for DeckDroid logs |
 | `deckclean` | Storage cleanup utility |
@@ -65,7 +65,7 @@ This wizard helps you set:
 | `deckmenu` | Interactive TUI launcher for all tools |
 | `deckhelp` | Help utility with usage examples |
 | `decksetup` | First-run setup wizard |
-| `deckai` | AI launcher (opencode / gemini-cli) |
+| `deckai` | AI launcher (interactive menu: opencode / gemini-cli) |
 | `tetris` | Play Tetris game |
 
 **Usage examples:**

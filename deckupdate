@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""deckupdate — Check and auto-update TermuxDeck OS"""
+"""deckupdate — Check and auto-update DeckDroid"""
 import sys, json, pathlib, subprocess, urllib.request, os
 
 HOME = pathlib.Path.home()
-TDECK = HOME / ".termuxdeck"
-CFG = TDECK / "config.json"
+DDROID = HOME / ".deckdroid"
+CFG = DDROID / "config.json"
 GREEN = "\033[0;32m"; YELLOW = "\033[1;33m"; CYAN = "\033[0;36m"; RESET = "\033[0m"; BOLD = "\033[1m"; RED = "\033[0;31m"
 
-LATEST_URL = "https://api.github.com/repos/nOS-Coding/termuxdeck/releases/latest"
-INSTALL_URL = "https://nos-coding.github.io/termuxdeck/install.sh"
+LATEST_URL = "https://api.github.com/repos/nOS-Coding/deckdroid/releases/latest"
+INSTALL_URL = "https://nos-coding.github.io/deckdroid/install.sh"
 
 def load_cfg():
     if CFG.exists():
@@ -24,22 +24,22 @@ def get_current_version():
 
 def get_latest_version():
     try:
-        req = urllib.request.Request(LATEST_URL, headers={"User-Agent": "TermuxDeck"})
+        req = urllib.request.Request(LATEST_URL, headers={"User-Agent": "DeckDroid"})
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode())
             return data.get("tag_name", "v0.0.0").lstrip("v")
-    except:
+    except Exception as e:
         return None
 
 def parse_version(v):
     try:
         return tuple(int(x) for x in v.split("."))
     except:
-        return (0, 0, 0)
+        return (0,0,0)
 
 def cmd_check(args):
     current = get_current_version()
-    print(f"\n{BOLD}TermuxDeck OS — Update Checker{RESET}\n")
+    print(f"\n{BOLD}DeckDroid — Update Checker{RESET}\n")
     print(f"  Current version: {CYAN}{current}{RESET}")
     
     latest = get_latest_version()
@@ -65,18 +65,17 @@ def cmd_status(args):
     current = get_current_version()
     latest = get_latest_version()
     
-    print(f"\n{BOLD}TermuxDeck OS — Update Status{RESET}\n")
+    print(f"\n{BOLD}DeckDroid — Update Status{RESET}\n")
     print(f"  Current version: {CYAN}{current}{RESET}")
     print(f"  Latest version:  {CYAN}{latest if latest else 'unknown'}{RESET}")
-    print(f"  Auto-update:      {'{GREEN}Enabled{N/A}' if auto else '{YELLOW}Disabled{N/A}'}" .format(**{"GREEN": GREEN, "YELLOW": YELLOW, "N/A": RESET}))
+    status = f"{GREEN}enabled{RESET}" if auto else f"{YELLOW}disabled{RESET}"
+    print(f"  Auto-update:      {status}")
     print()
 
 def cmd_auto(args):
-    """Toggle or set auto-update"""
     cfg = load_cfg()
     
     if not args:
-        # Show current status
         auto = cfg.get("auto_update", False)
         status = f"{GREEN}enabled{RESET}" if auto else f"{YELLOW}disabled{RESET}"
         print(f"\nAuto-update is {status}")
@@ -86,7 +85,7 @@ def cmd_auto(args):
         cfg["auto_update"] = True
         save_cfg(cfg)
         print(f"\n{GREEN}✓ Auto-update enabled{RESET}")
-        print(f"  TermuxDeck will check and update on each shell start.")
+        print(f"  DeckDroid will check and update on each shell start.")
     elif args[0] == "off":
         cfg["auto_update"] = False
         save_cfg(cfg)
@@ -98,8 +97,7 @@ def cmd_auto(args):
         print(f"Usage: deckupdate auto [on|off|status]")
 
 def cmd_upgrade(args):
-    """Perform upgrade"""
-    print(f"\n{BOLD}Upgrading TermuxDeck OS...{RESET}\n")
+    print(f"\n{BOLD}Upgrading DeckDroid...{RESET}\n")
     print(f"  Fetching installer from {INSTALL_URL}...")
     
     try:
@@ -111,14 +109,13 @@ def cmd_upgrade(args):
             print(f"{RED}✗ Failed to download installer{RESET}")
             return
         
-        # Save installer to temp and run
-        installer_path = TDECK + "/install.sh"
+        installer_path = DDROID / "install.sh"
         with open(installer_path, "w") as f:
             f.write(result.stdout)
         os.chmod(installer_path, 0o755)
         
         print(f"  Running installer...")
-        subprocess.run(["bash", installer_path])
+        subprocess.run(["bash", str(installer_path)])
         
     except Exception as e:
         print(f"{RED}✗ Upgrade failed: {e}{RESET}")
@@ -126,9 +123,9 @@ def cmd_upgrade(args):
 def cmd_info(args):
     current = get_current_version()
     cfg = load_cfg()
-    print(f"\n{BOLD}TermuxDeck OS — Info{RESET}\n")
+    print(f"\n{BOLD}DeckDroid — Info{RESET}\n")
     print(f"  Version:   {current}")
-    print(f"  Home:      {TDECK}")
+    print(f"  Home:      {DDROID}")
     print(f"  Auto-upd:  {cfg.get('auto_update', False)}")
     if CFG.exists():
         cfg = json.loads(CFG.read_text())
@@ -144,7 +141,7 @@ if __name__ == "__main__":
     if not args or args[0] not in CMDS:
         print(f"{BOLD}deckupdate — Update Checker{RESET}")
         print(f"Usage: deckupdate <command>")
-        print(f"Commands:")
+        print(f"\nCommands:")
         print(f"  {CYAN}check{RESET}    Check for new version")
         print(f"  {CYAN}upgrade{RESET}  Upgrade to latest version")
         print(f"  {CYAN}auto{RESET}      Toggle/see auto-update status")

@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""
-DeckDroid — Profile Manager (ddeckprof)
-Manages DeckDroid profiles.
-"""
-import os, sys, subprocess, json, pathlib
+"""ddeckprof — DeckDroid Profile Manager"""
+import sys, subprocess, os, pathlib
 
-DDROID_HOME = pathlib.Path.home() / ".deckdroid"
-CFG = DDROID_HOME / "config.json"
-PROFILES_DIR = DDROID_HOME / "profiles"
+HOME = pathlib.Path.home()
+DDROID = HOME / ".deckdroid"
+CFG = DDROID / "config.json"
+PROFILES_DIR = DDROID / "profiles"
 
 PROFILES = {
     "hacker": {
@@ -31,7 +29,7 @@ PROFILES = {
         "desc": "SDR tools (RTL-SDR, radio decode)",
     },
     "hamradio": {
-        "pkgs": ["hamlib"],  # hamlib may not be available
+        "pkgs": ["hamlib"],
         "desc": "Amateur radio tools",
     },
     "iot": {
@@ -72,40 +70,36 @@ def install_pkg(pkg):
         return False
 
 def cmd_list(args):
-    """List available profiles."""
     active = get_active()
-    print("\n\033[1mDeckDroid — Available Profiles\033[0m\n")
+    print("\nDeckDroid — Available Profiles\n")
     for name, info in PROFILES.items():
-        status = "\033[0;32m[active]\033[0m" if name in active else "\033[0;90m[-----]\033[0m"
-        print(f"  {name:<12} {status}  {info['desc']}")
+        status = "✓ active" if name in active else "○ inactive"
+        print(f"  {name:<12} [{status}]  {info['desc']}")
     print()
 
 def cmd_set(args):
-    """Install and activate a profile."""
     if not args:
         print("Usage: ddeckprof set <profile>")
         print(f"Available: {', '.join(PROFILES.keys())}")
         sys.exit(1)
-
+    
     profile = args[0]
     if profile not in PROFILES:
         print(f"Unknown profile: {profile}")
-        print(f"Available: {', '.join(PROFILES.keys())}")
         sys.exit(1)
-
-    print(f"\n\033[1mInstalling {profile} profile...\033[0m\n")
+    
+    print(f"\nInstalling {profile} profile...\n")
     for pkg in PROFILES[profile]["pkgs"]:
         print(f"  Installing {pkg}...", end=" ")
         if install_pkg(pkg):
-            print("\033[0;32mOK\033[0m")
+            print("OK")
         else:
-            print("\033[0;33mskipped\033[0m (may not be available for this arch)")
-
+            print("skipped (may not be available)")
+    
     set_active(profile, True)
-    print(f"\n\033[0;32m✓ {profile} profile activated\033[0m")
+    print(f"\n✓ {profile} profile activated")
 
 def cmd_unset(args):
-    """Deactivate a profile (does not uninstall packages)."""
     if not args:
         print("Usage: ddeckprof unset <profile>")
         sys.exit(1)
@@ -117,7 +111,6 @@ def cmd_unset(args):
     print(f"✓ {profile} profile deactivated")
 
 def cmd_install_all(args):
-    """Install all profiles."""
     for name in PROFILES:
         set_active(name, True)
         print(f"\n[Installing {name}]")
@@ -127,19 +120,18 @@ def cmd_install_all(args):
                 print("OK")
             else:
                 print("skipped")
-    print("\n\033[0;32m✓ All profiles installed and activated\033[0m")
+    print("\n✓ All profiles installed and activated")
 
 def cmd_status(args):
-    """Show active profiles."""
     active = get_active()
     if active:
-        print("\033[1mActive profiles:\033[0m")
+        print("Active profiles:")
         for p in active:
             print(f"  • {p}")
     else:
         print("No profiles active. Run: ddeckprof set <profile>")
 
-COMMANDS = {
+CMDS = {
     "list": cmd_list,
     "set": cmd_set,
     "unset": cmd_unset,
@@ -148,15 +140,15 @@ COMMANDS = {
 }
 
 if __name__ == "__main__":
-    if not DDROID_HOME.exists():
-        print("\033[0;31mError: DeckDroid not installed.\033[0m")
+    if not DDROID.exists():
+        print("DeckDroid not installed.")
         print("Run: curl -sL https://nos-coding.github.io/deckdroid/install.sh | bash")
         sys.exit(1)
-
+    
     args = sys.argv[1:]
-    if not args or args[0] not in COMMANDS:
-        print("\033[1mDeckDroid Profile Manager\033[0m")
-        print(f"Usage: ddeckprof <command> [args]")
+    if not args or args[0] not in CMDS:
+        print("DeckDroid Profile Manager")
+        print("Usage: ddeckprof <command> [args]")
         print("\nCommands:")
         print("  list         Show available profiles")
         print("  set <name>   Install and activate a profile")
@@ -164,5 +156,5 @@ if __name__ == "__main__":
         print("  install-all  Install all profiles")
         print("  status       Show active profiles")
         sys.exit(1)
-
-    COMMANDS[args[0]](args[1:])
+    
+    CMDS[args[0]](args[1:])

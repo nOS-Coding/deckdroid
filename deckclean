@@ -1,95 +1,79 @@
-#!/usr/bin/env python3
-"""deckclean — Storage cleanup utility for TermuxDeck OS"""
-import sys, pathlib, subprocess, shutil
+#!/data/data/com.termux/files/usr/bin/bash
+# deckclean — Storage cleanup for DeckDroid
+# Usage: deckclean [check|clean] [--dry-run]
 
-HOME = pathlib.Path.home()
-TDECK = HOME / ".termuxdeck"
-GREEN = "\033[0;32m"; RED = "\033[0;31m"; YELLOW = "\033[1;33m"; CYAN = "\033[0;36m"; RESET = "\033[0m"; BOLD = "\033[1m"
+DDROID_HOME="${DDROID_HOME:-$HOME/.deckdroid}"
+DRY_RUN=false
 
-def get_size(path):
-    try:
-        if path.is_file():
-            return path.stat().st_size
-        total = 0
-        for p in path.rglob("*"):
-            if p.is_file():
-                total += p.stat().st_size
-        return total
-    except:
-        return 0
+for arg in "$@"; do
+  case $arg in
+    check)   ;;
+    clean)   ;;
+    --dry-run) DRY_RUN=true ;;
+  esac
+done
 
-def fmt_size(b):
-    for u in ["B", "KB", "MB", "GB"]:
-        if b < 1024:
-            return f"{b:.1f} {u}"
-        b /= 1024
-    return f"{b:.1f} TB"
+R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; C='\033[0;36m'; N='\033[0m'; B='\033[1m'
 
-def cmd_check(args):
-    print(f"\n{BOLD}{CYAN}Storage Usage — TermuxDeck OS{RESET}\n")
-    total = 0
-    for item in ["logs", "notes", "tools", "profiles"]:
-        path = TDECK / item
-        if path.exists():
-            size = get_size(path)
-            total += size
-            print(f"  {CYAN}{item:<10}{RESET}  {fmt_size(size)}")
-    
-    print(f"  {'─'*20}")
-    print(f"  {BOLD}Total:{RESET}     {fmt_size(total)}")
-    
-    # Check available space
-    result = subprocess.run(["df", "-h", str(HOME)], capture_output=True, text=True)
-    if result.returncode == 0:
-        lines = result.stdout.strip().split("\n")
-        if len(lines) > 1:
-            parts = lines[1].split()
-            if len(parts) >= 4:
-                print(f"\n{BOLD}Device Space:{RESET}")
-                print(f"  Used:  {parts[2]}")
-                print(f"  Avail: {parts[3]}")
-    print()
+echo -e "${B}${C}╔════════════════════════════════════════════╗${N}"
+echo -e "${B}${C}║      deckclean  v1.1           ║${N}"
+echo -e "${B}${C}╚════════════════════════════════════════════╝${N}\n"
 
-def cmd_clear_logs(args):
-    logs = TDECK / "logs"
-    if logs.exists():
-        count = 0
-        for f in logs.glob("*.log"):
-            f.unlink()
-            count += 1
-        print(f"{GREEN}✓ Cleared {count} log files{RESET}")
-    else:
-        print(f"{YELLOW}No logs directory{RESET}")
+# Check disk usage
+echo -e "${B}Current Storage:${N}"
+df -h "$HOME" 2>/dev/null | while read line; do
+  echo -e "  $line"
+done
 
-def cmd_clear_trash(args):
-    trash = TDECK / "notes" / ".trash"
-    if trash.exists():
-        count = 0
-        for f in trash.glob("*"):
-            if f.is_file():
-                f.unlink()
-                count += 1
-        print(f"{GREEN}✓ Cleared {count} items from trash{RESET}")
-    else:
-        print(f"{YELLOW}No trash directory{RESET}")
+echo ""
 
-def cmd_clear_all(args):
-    print(f"{YELLOW}Clearing logs and trash...{RESET}")
-    cmd_clear_logs([])
-    cmd_clear_trash([])
-    print(f"{GREEN}✓ Cleanup complete{RESET}")
+# Find cache dirs
+CACHE_DIRS=("$HOME/.cache" "$DDROID_HOME/.cache" "/data/data/com.termux/cache")
+TOTAL_SAVED=0
 
-CMDS = {"check": cmd_check, "logs": cmd_clear_logs, "trash": cmd_clear_trash, "all": cmd_clear_all}
+echo -e "${B}Cache Directories:${N}"
+for dir in "${CACHE_DIRS[@]}"; do
+  if [ -d "$dir" ]; then
+    SIZE=$(du -sh "$dir" 2>/dev/null | cut -f1)
+    echo -e "  ${C}$dir${N} — $SIZE"
+    TOTAL_SAVED=$((TOTAL_SAVED + $(du -s "$dir" 2>/dev/null | cut -f1)))
+  fi
+done
 
-if __name__ == "__main__":
-    args = sys.argv[1:]
-    if not args or args[0] not in CMDS:
-        print(f"{BOLD}deckclean — Storage Cleanup{RESET}")
-        print(f"Usage: deckclean <command>")
-        print(f"Commands:")
-        print(f"  {CYAN}check{RESET}    Show storage usage")
-        print(f"  {CYAN}logs{RESET}    Clear log files")
-        print(f"  {CYAN}trash{RESET}   Clear note trash")
-        print(f"  {CYAN}all{RESET}     Clear everything")
-        sys.exit(1)
-    CMDS[args[0]](args[1:])
+echo -e "\n${B}Package Cache:${N}"
+if [ -d "$PREFIX/cache/apt" ]; then
+  APT_SIZE=$(du -sh "$PREFIX/cache/apt" 2>/dev/null | cut -f1)
+  echo -e "  ${C}apt cache${N} — $APT_SIZE"
+fi
+
+# Clean function
+if [ "${1:-}" = "clean" ]; then
+  if $DRY_RUN; then
+    echo -e "\n${Y}[DRY RUN] Would clean:${N}"
+  else
+    echo -e "\n${Y}Cleaning...${N}"
+  fi
+  
+  # Clean apt cache
+  if ! $DRY_RUN; then
+    apt-get clean 2>/dev/null || true
+    echo -e "${G}✓ APT cache cleared${N}"
+  fi
+  
+  # Clean temp files
+  find "$DDROID_HOME" -name "*.tmp" -delete 2>/dev/null || true
+  find "$DDROID_HOME" -name "*.log.bak" -delete 2>/dev/null || true
+  
+  # Clean trash
+  TRASH_DIR="$DDROID_HOME/notes/.trash"
+  if [ -d "$TRASH_DIR" ] && ! $DRY_RUN; then
+    rm -rf "$TRASH_DIR"/*
+    echo -e "${G}✓ Trash emptied${N}"
+  fi
+  
+  echo -e "\n${G}✓ Cleanup complete${N}"
+else
+  echo -e "\n${Y}Run: deckclean clean${N}"
+fi
+
+echo -e "${B}Time:${N} $(date '+%Y-%m-%d %H:%M:%S')"

@@ -8,8 +8,8 @@ CFG="$DDROID_HOME/config.json"
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
 
-has_opencode()  { command -v opencode  &>/dev/null; }
-has_gemini_cli() { command -v gemini    &>/dev/null || command -v gemini-cli &>/dev/null; }
+has_opencode()  { command -v opencode &>/dev/null; }
+has_gemini_cli() { command -v gemini &>/dev/null || command -v gemini-cli &>/dev/null; }
 
 get_ai_selection() {
   if [ -f "$CFG" ] && command -v python3 &>/dev/null; then
@@ -39,29 +39,6 @@ json.dump(cfg, open('$DDROID_HOME/config.json', 'w'), indent=2)
   fi
 }
 
-install_menu() {
-  echo -e "${BOLD}${CYAN}"
-  echo "╔══════════════════════════════════════════════╗"
-  echo "║     deckai — AI Setup                         ║"
-  echo "╚══════════════════════════════════════════════╝${RESET}"
-  echo -e "\nNo AI CLI found. Choose what to install:\n"
-  echo -e "  ${CYAN}1${RESET}) opencode        — Open-source AI CLI"
-  echo -e "  ${CYAN}2${RESET}) gemini-cli      — Google Gemini CLI"
-  echo -e "  ${CYAN}3${RESET}) Both             — Install both"
-  echo -e "  ${CYAN}0${RESET}) Cancel"
-
-  while true; do
-    read -r -p $'\n\e[1mInstall:\e[0m ' choice
-    case "$choice" in
-      1) echo "opencode";    break ;;
-      2) echo "gemini-cli";  break ;;
-      3) echo "both";        break ;;
-      0) echo "none";        break ;;
-      *) echo -e "${YELLOW}Invalid choice.${RESET}" ;;
-    esac
-  done
-}
-
 install_opencode() {
   echo -e "\n${BOLD}${GREEN}Installing opencode from DioNanos/opencode-termux...${RESET}"
   if command -v npm &>/dev/null; then
@@ -88,21 +65,21 @@ ai_selector() {
   echo "║     deckai — Choose AI                        ║"
   echo "╚══════════════════════════════════════════════╝${RESET}"
   echo -e "\nBoth AI CLIs are installed. Pick one to launch:\n"
-
+  
   local opts=()
   local saved
   saved=$(get_ai_selection)
-
+  
   if has_opencode;  then opts+=("opencode");  fi
   if has_gemini_cli; then opts+=("gemini-cli"); fi
-
+  
   for i in "${!opts[@]}"; do
     local marker=""
     [ "${opts[$i]}" = "$saved" ] && marker=" (default)"
     echo -e "  ${CYAN}$((i+1))${RESET}) ${opts[$i]}${marker}"
   done
   echo -e "  ${CYAN}0${RESET}) Cancel"
-
+  
   while true; do
     read -r -p $'\n\e[1mLaunch:\e[0m ' choice
     case "$choice" in
@@ -120,33 +97,54 @@ ai_selector() {
   done
 }
 
-# ── Main ──────────────────────────────────────────────────────────
+# ── Main ──────────────────────────────────────────────────
 
 if ! has_opencode && ! has_gemini_cli; then
-  choice=$(install_menu)
-  case "$choice" in
-    opencode)
-      install_opencode
-      has_opencode  || { echo -e "${RED}opencode installation failed.${RESET}"; exit 1; }
-      save_ai_selection "opencode"
-      exec opencode "$@"
-      ;;
-    gemini-cli)
-      install_gemini_cli
-      has_gemini_cli || { echo -e "${RED}gemini-cli installation failed.${RESET}"; exit 1; }
-      save_ai_selection "gemini-cli"
-      exec gemini "$@" 2>/dev/null || exec gemini-cli "$@"
-      ;;
-    both)
-      install_opencode
-      install_gemini_cli
-      ;;
-    none|*)
-      echo -e "${YELLOW}Cancelled.${RESET}"
-      exit 0
-      ;;
-  esac
+  echo -e "${BOLD}${CYAN}"
+  echo "╔══════════════════════════════════════════════╗"
+  echo "║     deckai — AI Setup                         ║"
+  echo "╚══════════════════════════════════════════════╝${RESET}"
+  echo -e "\nNo AI CLI found. Choose what to install:\n"
+  echo -e "  ${CYAN}o${RESET}) opencode        — Open-source AI CLI"
+  echo -e "  ${CYAN}g${RESET}) gemini-cli      — Google Gemini CLI"
+  echo -e "  ${CYAN}b${RESET}) Both             — Install both"
+  echo -e "  ${CYAN}c${RESET}) Cancel"
+  
+  while true; do
+    read -r -p $'\n\e[1mInstall:\e[0m ' choice
+    case "$choice" in
+      o|O) echo "opencode";    break ;;
+      g|G) echo "gemini-cli";  break ;;
+      b|B) echo "both";        break ;;
+      c|C) echo "none";        break ;;
+      *) echo -e "${YELLOW}Invalid choice.${RESET}" ;;
+    esac
+  done
 fi
+
+choice=$(install_menu)
+case "$choice" in
+  opencode)
+    install_opencode
+    has_opencode  || { echo -e "${RED}opencode installation failed.${RESET}"; exit 1; }
+    save_ai_selection "opencode"
+    exec opencode "$@"
+    ;;
+  gemini-cli)
+    install_gemini_cli
+    has_gemini_cli || { echo -e "${RED}gemini-cli installation failed.${RESET}"; exit 1; }
+    save_ai_selection "gemini-cli"
+    exec gemini "$@" 2>/dev/null || exec gemini-cli "$@"
+    ;;
+  both)
+    install_opencode
+    install_gemini_cli
+    ;;
+  none|*)
+    echo -e "${YELLOW}Cancelled.${RESET}"
+    exit 0
+    ;;
+esac
 
 # Both installed — let user pick
 if has_opencode && has_gemini_cli; then

@@ -1,186 +1,135 @@
-#!/usr/bin/env python3
-"""decksetup — First-run setup wizard for TermuxDeck OS"""
-import sys, json, pathlib, subprocess, os
+#!/usr/bin/env bash
+# decksetup — DeckDroid First-Run Setup Wizard
+set -euo pipefail
 
-HOME = pathlib.Path.home()
-TDECK = HOME / ".termuxdeck"
-CFG = TDECK / "config.json"
-GREEN = "\033[0;32m"; YELLOW = "\033[1;33m"; CYAN = "\033[0;36m"; RESET = "\033[0m"; BOLD = "\033[1m"; DIM = "\033[2m"
+DDROID_HOME="${DDROID_HOME:-$HOME/.deckdroid}"
+CFG="$DDROID_HOME/config.json"
 
-PROFILES = ["hacker", "developer", "writer", "crypto", "radio", "hamradio", "iot"]
-VISUAL_THEMES = ["cyberpunk", "ghost", "blood", "matrix", "nord", "dracula", "monokai", "ocean"]
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
 
-def load_cfg():
-    if CFG.exists():
-        try:
-            return json.loads(CFG.read_text())
-        except:
-            pass
-    return {"version": "1.1.0", "profiles": [], "theme": {"name": "cyberpunk"}}
+echo -e "${BOLD}${CYAN}"
+echo "╔═════════════════════════════════════════════╗"
+echo "║       DeckDroid — First-Run Setup Wizard        ║"
+echo "╚═════════════════════════════════════════════╝${RESET}"
+echo ""
 
-def save_cfg(cfg):
-    CFG.write_text(json.dumps(cfg, indent=2))
+# ── Hostname ──────────────────────────────────────
+echo -e "${BOLD}1. Hostname${RESET}"
+echo -e "${DIM}   Enter a name for your device:${RESET}"
+read -r -p "   Hostname: " HOSTNAME
+HOSTNAME=${HOSTNAME:-"droid-$(printf "%04x" $RANDOM)"}
 
-def input_with_default(prompt, default):
-    """Get input with a default value"""
-    response = input(f"{prompt} [{default}]: ").strip()
-    return response if response else default
+if command -v python3 &>/dev/null; then
+  python3 -c "
+import json
+cfg = json.load(open('$CFG'))
+cfg['hostname'] = '$HOSTNAME'
+json.dump(cfg, open('$CFG', 'w'), indent=2)
+"
+  echo -e "${GREEN}✓ Hostname set to: $HOSTNAME${RESET}"
+fi
 
-def select_option(prompt, options, current=None):
-    """Show numbered selection menu"""
-    print(f"\n{BOLD}{prompt}{RESET}")
-    for i, opt in enumerate(options, 1):
-        marker = " ◉" if opt == current else " ○"
-        print(f"  {CYAN}{i}.{RESET} {opt}{marker}")
-    print(f"  {YELLOW}0.{RESET} Skip/None")
-    
-    while True:
-        try:
-            choice = input(f"\n{BOLD}Select:{RESET} ").strip()
-            if choice == "0" or choice == "":
-                return current if current else None
-            idx = int(choice) - 1
-            if 0 <= idx < len(options):
-                return options[idx]
-        except ValueError:
-            pass
-        print("Invalid choice. Try again.")
+# ── Profile ─────────────────────────────────────────
+echo ""
+echo -e "${BOLD}2. Profile${RESET}"
+echo -e "${DIM}   Choose your mission profile:${RESET}"
+echo -e "   ${CYAN}1${RESET}) hacker     — Security tools (nmap, tcpdump, etc.)"
+echo -e "   ${CYAN}2${RESET}) developer  — Dev environment (git, python, nodejs)"
+echo -e "   ${CYAN}3${RESET}) writer     — Writing tools (markdown, pandoc)"
+echo -e "   ${CYAN}4${RESET}) crypto     — Encryption tools (GPG, openssl)"
+echo -e "   ${CYAN}5${RESET}) radio      — SDR tools (RTL-SDR, radio)"
+echo -e "   ${CYAN}6${RESET}) iot        — IoT tools (serial, MQTT)"
+echo -e "   ${CYAN}0${RESET}) Skip"
 
-def cmd_run(args):
-    """Run the setup wizard"""
-    print(f"""
-{BOLD}{CYAN}
-╔══════════════════════════════════════════════════════╗
-║     TermuxDeck OS — First-Run Setup Wizard          ║
-╚══════════════════════════════════════════════════════╝{RESET}
-{DIM}Let's configure your cyberdeck...{RESET}
-""")
-    
-    cfg = load_cfg()
-    
-    # ─── Hostname ───
-    print(f"\n{BOLD}── Hostname ───────────────────────────────────────────────{RESET}")
-    current_host = cfg.get("hostname", "tdeck-" + format(hash(str(os.times())) % 10000, '04d'))
-    hostname = input_with_default("Choose a device name", current_host)
-    cfg["hostname"] = hostname
-    
-    # ─── Profile Selection ───
-    print(f"\n{BOLD}── Profile ────────────────────────────────────────────────{RESET}")
-    print(f"{DIM}Select your primary use case:{RESET}")
-    profile = select_option("Profile", PROFILES, cfg.get("profiles", [None])[0] if cfg.get("profiles") else None)
-    if profile:
-        if "profiles" not in cfg:
-            cfg["profiles"] = []
-        if profile not in cfg["profiles"]:
-            cfg["profiles"].append(profile)
-        
-        # Install profile packages
-        print(f"\n{DIM}Installing {profile} profile packages...{RESET}")
-        profile_pkgs = {
-            "hacker": ["nmap", "tcpdump", "netcat-openbsd", "curl", "wget", "whois", "dnsutils"],
-            "developer": ["git", "openssh", "python", "nodejs", "nano"],
-            "writer": ["mdcat", "pandoc"],
-            "crypto": ["gnupg", "openssl"],
-            "radio": ["rtl-sdr", "sox", "multimon-ng"],
-            "hamradio": ["gnupg"],
-            "iot": ["python", "mosquitto-clients"],
-        }
-        
-        for pkg in profile_pkgs.get(profile, []):
-            print(f"  Installing {pkg}...", end=" ")
-            try:
-                subprocess.run(["pkg", "install", "-y", pkg], capture_output=True, timeout=60)
-                print(f"{GREEN}OK{RESET}")
-            except:
-                print(f"{YELLOW}skipped{RESET}")
-    
-    # ─── Theme Selection ───
-    print(f"\n{BOLD}── Theme ────────────────────────────────────────────────{RESET}")
-    print(f"{DIM}Choose your visual style:{RESET}")
-    theme = select_option("Theme", VISUAL_THEMES, cfg.get("theme", {}).get("name", "cyberpunk"))
-    if theme:
-        if "theme" not in cfg:
-            cfg["theme"] = {}
-        cfg["theme"]["name"] = theme
-    
-    # ─── Auto-update ───
-    print(f"\n{BOLD}── Auto-Update ──────────────────────────────────────────{RESET}")
-    print(f"{DIM}Would you like TermuxDeck to automatically update on shell start?{RESET}")
-    print(f"  {CYAN}Y{RESET}es - Check and prompt for updates")
-    print(f"  {CYAN}N{RESET}o  - Manual updates only")
-    
-    auto_update = input(f"\n{BOLD}Enable auto-update?{RESET} [Y/n]: ").strip().lower()
-    cfg["auto_update"] = auto_update in ("", "y", "yes")
-    
-    # ─── Additional Packages ───
-    print(f"\n{BOLD}── Additional Packages ────────────────────────────────────{RESET}")
-    print(f"{DIM}Install common packages? (space-separated, Enter for none){RESET}")
-    print(f"  Common: {CYAN}neofetch vim curl wget git openssh python nodejs w3m termux-api{RESET}")
-    
-    extra = input(f"\n{BOLD}Additional packages:{RESET} ").strip()
-    if extra:
-        print(f"\n{DIM}Installing additional packages...{RESET}")
-        for pkg in extra.split():
-            print(f"  {pkg}...", end=" ")
-            try:
-                subprocess.run(["pkg", "install", "-y", pkg], capture_output=True, timeout=60)
-                print(f"{GREEN}OK{RESET}")
-            except:
-                print(f"{YELLOW}skipped{RESET}")
-    
-    # ─── Save Config ───
-    save_cfg(cfg)
-    
-    print(f"""
-{BOLD}{GREEN}
-╔══════════════════════════════════════════════════════╗
-║              Setup Complete!                         ║
-╚══════════════════════════════════════════════════════╝{RESET}
+read -r -p "   Choice: " PROFILE_CHOICE
 
-Your TermuxDeck OS is configured:
-  • Hostname:  {hostname}
-  • Profile:  {profile if profile else 'base'}
-  • Theme:    {theme}
-  • Auto-upd: {'Yes' if cfg.get('auto_update') else 'No'}
+case "$PROFILE_CHOICE" in
+  1) PROFILE="hacker" ;;
+  2) PROFILE="developer" ;;
+  3) PROFILE="writer" ;;
+  4) PROFILE="crypto" ;;
+  5) PROFILE="radio" ;;
+  6) PROFILE="iot" ;;
+  *) echo -e "${YELLOW}Skipping profile selection.${RESET}"; PROFILE="" ;;
+esac
 
-Next steps:
-  • Run 'zsh' to enter your cyberdeck
-  • Run 'deckmenu' to browse tools
-  • Run 'deckhelp' for documentation
+if [ -n "$PROFILE" ]; then
+  echo -e "${CYAN}Installing $PROFILE profile...${RESET}"
+  if command -v ddeckprof &>/dev/null; then
+    ddeckprof set "$PROFILE" 2>/dev/null || echo -e "${YELLOW}Profile install skipped (may not be available)${RESET}"
+  fi
+fi
 
-{DIM}Type 'decksetup' anytime to reconfigure.{RESET}
-""")
+# ── Theme ───────────────────────────────────────────
+echo ""
+echo -e "${BOLD}3. Theme${RESET}"
+echo -e "${DIM}   Choose your visual theme:${RESET}"
+echo -e "   ${CYAN}1${RESET}) cyberpunk — Green/cyan, matrix-style (default)"
+echo -e "   ${CYAN}2${RESET}) ghost      — White/grey, minimal"
+echo -e "   ${CYAN}3${RESET}) blood      — Deep red, aggressive"
+echo -e "   ${CYAN}4${RESET}) nord       — Arctic blue"
+echo -e "   ${CYAN}5${RESET}) ocean      — Deep blue"
+echo -e "   ${CYAN}0${RESET}) Skip"
 
-def cmd_status(args):
-    """Show current setup status"""
-    cfg = load_cfg()
-    print(f"\n{BOLD}TermuxDeck OS — Setup Status{RESET}\n")
-    print(f"  Hostname:    {cfg.get('hostname', 'N/A')}")
-    print(f"  Theme:       {cfg.get('theme', {}).get('name', 'N/A')}")
-    print(f"  Profiles:    {', '.join(cfg.get('profiles', [])) or 'none'}")
-    print(f"  Auto-update: {'Yes' if cfg.get('auto_update') else 'No'}")
-    print(f"\nRun 'decksetup' to reconfigure.")
-    print()
+read -r -p "   Choice: " THEME_CHOICE
 
-CMDS = {"run": cmd_run, "status": cmd_status}
+case "$THEME_CHOICE" in
+  1) THEME="cyberpunk" ;;
+  2) THEME="ghost" ;;
+  3) THEME="blood" ;;
+  4) THEME="nord" ;;
+  5) THEME="ocean" ;;
+  *) echo -e "${YELLOW}Skipping theme selection.${RESET}"; THEME="" ;;
+esac
 
-if __name__ == "__main__":
-    args = sys.argv[1:]
-    
-    # Auto-run if no args
-    if not args:
-        cmd_run([])
-    elif args[0] == "--help" or args[0] == "-h":
-        print(f"{BOLD}decksetup — First-Run Setup Wizard{RESET}")
-        print(f"Usage: decksetup")
-        print(f"       decksetup status")
-        print(f"\nRuns automatically on first boot to configure:")
-        print(f"  • Hostname")
-        print(f"  • Profile")
-        print(f"  • Theme")
-        print(f"  • Auto-update")
-        print(f"  • Additional packages")
-    elif args[0] in CMDS:
-        CMDS[args[0]](args[1:])
-    else:
-        cmd_run([])
+if [ -n "$THEME" ]; then
+  if command -v decktheme &>/dev/null; then
+    decktheme set "$THEME" 2>/dev/null || echo -e "${YELLOW}Theme set skipped${RESET}"
+  fi
+fi
+
+# ── Auto-update ─────────────────────────────────────
+echo ""
+echo -e "${BOLD}4. Auto-Update${RESET}"
+echo -e "${DIM}   Enable automatic update checks?${RESET}"
+echo -e "   ${CYAN}1${RESET}) Yes — Check for updates on shell start"
+echo -e "   ${CYAN}2${RESET}) No  — Manual updates only"
+
+read -r -p "   Choice: " AUTO_CHOICE
+
+if [ "$AUTO_CHOICE" = "1" ]; then
+  if command -v deckupdate &>/dev/null; then
+    deckupdate auto on 2>/dev/null || true
+    echo -e "${GREEN}✓ Auto-update enabled${RESET}"
+  fi
+else
+  echo -e "${YELLOW}Auto-update disabled.${RESET}"
+fi
+
+# ── Additional packages ────────────────────────────
+echo ""
+echo -e "${BOLD}5. Additional Packages${RESET}"
+echo -e "${DIM}   Install some handy extras?${RESET}"
+echo -e "   ${CYAN}1${RESET}) Yes — Install vim, htop, neofetch"
+echo -e "   ${CYAN}2${RESET}) No  — Skip"
+
+read -r -p "   Choice: " PKGS_CHOICE
+
+if [ "$PKGS_CHOICE" = "1" ]; then
+  echo -e "${CYAN}Installing extras...${RESET}"
+  pkg install -y vim htop neofetch 2>/dev/null || echo -e "${YELLOW}Some packages may not be available${RESET}"
+fi
+
+# ── Finish ───────────────────────────────────────────
+echo ""
+echo -e "${BOLD}${GREEN}"
+echo "╔═════════════════════════════════════════════╗"
+echo "║       DeckDroid Setup Complete!               ║"
+echo "╚═════════════════════════════════════════════╝${RESET}"
+echo ""
+echo -e "${CYAN}Run these commands:${RESET}"
+echo -e "  ${BOLD}zsh${RESET}        — Start DeckDroid shell"
+echo -e "  ${BOLD}deckmenu${RESET}    — Launch interactive menu"
+echo -e "  ${BOLD}deckhelp${RESET}    — View help"
+echo ""

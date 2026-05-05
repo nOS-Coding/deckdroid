@@ -1,41 +1,77 @@
-#!/usr/bin/env bash
-# decksniff — tcpdump wrapper with preset capture profiles
-# Usage: decksniff [http|dns|arp|all] [-i <iface>] [--log]
-set -euo pipefail
+#!/data/data/com.termux/files/usr/bin/bash
+# decksniff — tcpdump wrapper for DeckDroid
+# Usage: decksniff [--json] [--log] [--profile <name>] [tcpdump args...]
 
-PROFILE="${1:-all}"
-IFACE="${IFACE:-any}"
-LOG_DIR="$HOME/.termuxdeck/logs"
-LOG="$LOG_DIR/decksniff_$(date +%Y%m%d_%H%M%S).pcap"
+LOG_DIR="$HOME/.deckdroid/logs"
+JSON_OUT=false
 DO_LOG=false
+PROFILE="quick"
+TCPDUMP_ARGS="-c 10 -q"
 
-for arg in "$@"; do
-  [ "$arg" = "--log" ] && DO_LOG=true
-  [ "$arg" = "-i" ] && shift && IFACE="$1"
+i=1
+while [ $i -le $# ]; do
+  eval "arg=\${$i}"
+  case $arg in
+    --json) JSON_OUT=true ;;
+    --log)  DO_LOG=true ;;
+    --profile)
+      i=$((i+1))
+      eval "PROFILE=\${$i}"
+      ;;
+    *) break ;;
+  esac
+  i=$((i+1))
 done
+shift $((i-1))
 
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Check if tcpdump is installed
 if ! command -v tcpdump &>/dev/null; then
-  echo "✗ tcpdump not found. Install with: pkg install tcpdump" >&2
+  echo -e "\033[1;33m⚠ tcpdump not installed.\033[0m"
+  echo -e "Install: \033[1mpkg install tcpdump\033[0m"
   exit 1
 fi
 
-GREEN='\033[0;32m'; CYAN='\033[0;36m'; RESET='\033[0m'; BOLD='\033[1m'
-
+# Profile presets
 case "$PROFILE" in
-  http)  FILTER="port 80 or port 443"; DESC="HTTP/HTTPS traffic" ;;
-  dns)   FILTER="port 53";             DESC="DNS queries" ;;
-  arp)   FILTER="arp";                 DESC="ARP traffic" ;;
-  all|*) FILTER="";                    DESC="All traffic" ;;
+  quick)
+    DESC="Quick capture (10 packets, quiet)"
+    ;;
+  dns)
+    DESC="DNS queries only"
+    TCPDUMP_ARGS="-c 50 port 53"
+    ;;
+  http)
+    DESC="HTTP traffic"
+    TCPDUMP_ARGS="-c 50 port 80 or port 443"
+    ;;
+  all)
+    DESC="All traffic (50 packets)"
+    TCPDUMP_ARGS="-c 50 -q"
+    ;;
+  *)
+    DESC="Custom: $PROFILE"
+    TCPDUMP_ARGS="$PROFILE"
+    ;;
 esac
 
-echo -e "\n${BOLD}decksniff — Packet Capture${RESET}"
-echo -e "  Profile:   ${CYAN}$PROFILE${RESET} ($DESC)"
-echo -e "  Interface: ${CYAN}$IFACE${RESET}"
-$DO_LOG && echo -e "  Log:       ${CYAN}$LOG${RESET}"
-echo -e "  Press Ctrl+C to stop.\n"
+if $JSON_OUT; then
+  echo "{\"timestamp\":\"$TIMESTAMP\",\"tool\":\"decksniff\",\"profile\":\"$PROFILE\",\"desc\":\"$DESC\",\"args\":\"$TCPDUMP_ARGS $*\"}"
+else
+  R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; C='\033[0;36m'; N='\033[0m'; B='\033[1m'
+  
+  echo -e "${B}${C}╔══════════════════════════════════╗${N}"
+  echo -e "${B}${C}║      decksniff  v1.1          ║${N}"
+  echo -e "${B}${C}╚══════════════════════════════════╝${N}"
+  echo -e "  ${B}Profile   :${N} $PROFILE — $DESC"
+  echo -e "  ${B}Time      :${N} $TIMESTAMP"
+  echo -e "${Y}Starting capture... (Ctrl+C to stop)${N}\n"
+  
+  tcpdump $TCPDUMP_ARGS "$@" 2>&1
+fi
 
 if $DO_LOG; then
-  tcpdump -i "$IFACE" -w "$LOG" ${FILTER:+-n "$FILTER"} 2>/dev/null
-else
-  tcpdump -i "$IFACE" -l -n ${FILTER:+"$FILTER"} 2>/dev/null
+  mkdir -p "$LOG_DIR"
+  echo "{\"ts\":\"$TIMESTAMP\",\"tool\":\"decksniff\",\"profile\":\"$PROFILE\"}" >> "$LOG_DIR/tools.log"
 fi

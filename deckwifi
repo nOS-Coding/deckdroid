@@ -1,134 +1,64 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# deckwifi — Proactive WiFi environment scanner for TermuxDeck OS
-# Usage: deckwifi [--json] [--log] [--sort signal|ssid]
+# deckwifi — WiFi scanner for DeckDroid
+# Usage: deckwifi [--json] [--log]
 
-LOG_DIR="$HOME/.termuxdeck/logs"
+LOG_DIR="$HOME/.deckdroid/logs"
 JSON_OUT=false
 DO_LOG=false
-SORT_BY="signal"
 
-i=1
-while [ $i -le $# ]; do
-  eval "arg=\${$i}"
+for arg in "$@"; do
   case $arg in
     --json) JSON_OUT=true ;;
     --log)  DO_LOG=true ;;
-    --sort) i=$((i+1)); eval "SORT_BY=\${$i}" ;;
   esac
-  i=$((i+1))
 done
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# ── Current connection info ───────────────────────────────────────────────────
-CURRENT_SSID="N/A"; CURRENT_BSSID="N/A"; CURRENT_IP="N/A"
-if command -v termux-wifi-connectioninfo &>/dev/null; then
-  CONN=$(termux-wifi-connectioninfo 2>/dev/null)
-  if [ -n "$CONN" ]; then
-    CURRENT_SSID=$(echo "$CONN"  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('ssid','N/A'))" 2>/dev/null)
-    CURRENT_BSSID=$(echo "$CONN" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('bssid','N/A'))" 2>/dev/null)
-    CURRENT_IP=$(echo "$CONN"    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('ip','N/A'))" 2>/dev/null)
-  fi
-fi
-
-# ── Scan for nearby networks ──────────────────────────────────────────────────
-if command -v termux-wifi-scaninfo &>/dev/null; then
-  SCAN_RAW=$(termux-wifi-scaninfo 2>/dev/null)
-  NETWORKS=$(echo "$SCAN_RAW" | python3 - <<'PYEOF'
-import sys, json
-
-try:
-    data = json.load(sys.stdin)
-except:
-    print("[]")
-    sys.exit()
-
-nets = []
-for n in data:
-    ssid       = n.get('ssid', '<hidden>')
-    bssid      = n.get('bssid', 'N/A')
-    signal     = n.get('level', 0)
-    freq       = n.get('frequency', 0)
-    caps       = n.get('capabilities', '')
-    # Determine band
-    band = '5GHz' if freq >= 5000 else '2.4GHz'
-    # Determine security
-    if 'WPA3' in caps:    sec = 'WPA3'
-    elif 'WPA2' in caps:  sec = 'WPA2'
-    elif 'WPA' in caps:   sec = 'WPA'
-    elif 'WEP' in caps:   sec = 'WEP'
-    else:                  sec = 'Open'
-    nets.append({'ssid': ssid, 'bssid': bssid, 'signal': signal, 'band': band, 'security': sec, 'freq': freq})
-
-# Sort by signal descending
-nets.sort(key=lambda x: x['signal'], reverse=True)
-print(json.dumps(nets, indent=2))
-PYEOF
-)
+# Scan WiFi (with timeout to prevent hang)
+WIFI_OUT=$(timeout 10 termux-wifi-scaninfo 2>/dev/null || echo "")
+if [ -z "$WIFI_OUT" ]; then
+  WIFI_JSON="[]"
+  WIFI_TEXT="No WiFi networks found (or termux-api not installed)"
 else
-  NETWORKS="[]"
-  # Fallback: try iw if available
-  if command -v iw &>/dev/null; then
-    echo -e "\033[0;33m[deckwifi] Termux:API unavailable, falling back to iw scan (may require root)\033[0m" >&2
-  else
-    echo -e "\033[0;31m[deckwifi] Termux:API not available. Install Termux:API app and run: pkg install termux-api\033[0m" >&2
-  fi
+  WIFI_JSON="$WIFI_OUT"
+  WIFI_TEXT=$(echo "$WIFI_OUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    for net in d:
+        ssid = net.get('ssid', 'Hidden')
+        bssid = net.get('bssid', 'N/A')
+        freq = net.get('frequency_mhz', 0)
+        signal = net.get('signal_strength', -100)
+        # Simple signal bars
+        if signal > -50: bars = '▓▓▓'
+        elif signal > -70: bars = '▓▓'
+        elif signal > -85: bars = '▓'
+        else: bars = '░'
+        security = net.get('security', 'Open')
+        print(f'  {ssid:<20} {bars} {signal}dBm  {security}')
+except: pass
+" 2>/dev/null)
 fi
-
-NET_COUNT=$(echo "$NETWORKS" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
 
 if $JSON_OUT; then
-  python3 -c "
-import json
-print(json.dumps({
-  'timestamp': '$TIMESTAMP',
-  'current': {
-    'ssid':  '$CURRENT_SSID',
-    'bssid': '$CURRENT_BSSID',
-    'ip':    '$CURRENT_IP',
-  },
-  'scan_count': $NET_COUNT,
-  'networks': $NETWORKS,
-}, indent=2))
-"
+  echo "$WIFI_JSON"
 else
-  C='\033[0;36m'; G='\033[0;32m'; Y='\033[0;33m'; R='\033[0;31m'; M='\033[0;35m'; N='\033[0m'; B='\033[1m'
-  echo -e "${B}${C}╔══════════════════════════════════════╗${N}"
-  echo -e "${B}${C}║         deckwifi  v1.0               ║${N}"
-  echo -e "${B}${C}╚══════════════════════════════════════╝${N}"
-  echo -e "${B}${M}── Connected ────────────────────────────${N}"
-  echo -e "  ${B}SSID  :${N} $CURRENT_SSID"
-  echo -e "  ${B}BSSID :${N} $CURRENT_BSSID"
-  echo -e "  ${B}IP    :${N} $CURRENT_IP"
-  echo -e "${B}${M}── Nearby Networks ($NET_COUNT found) ────────${N}"
-
-  echo "$NETWORKS" | python3 - <<'PYEOF'
-import sys, json
-
-try:
-    nets = json.load(sys.stdin)
-except:
-    nets = []
-
-RESET='\033[0m'; BOLD='\033[1m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'
-
-for n in nets:
-    sig = n['signal']
-    if sig >= -50:   bar = f"{GREEN}▓▓▓▓▓{RESET}"
-    elif sig >= -65: bar = f"{GREEN}▓▓▓▓{RESET}░"
-    elif sig >= -75: bar = f"{YELLOW}▓▓▓{RESET}░░"
-    elif sig >= -85: bar = f"{YELLOW}▓▓{RESET}░░░"
-    else:            bar = f"{RED}▓{RESET}░░░░"
-
-    sec_color = GREEN if n['security'] != 'Open' else RED
-    print(f"  {BOLD}{n['ssid'][:28]:<28}{RESET}  {bar}  {sig:>4}dBm  {CYAN}{n['band']:<6}{RESET}  {sec_color}{n['security']}{RESET}")
-    print(f"  {'':28}  {n['bssid']}  {n['freq']}MHz")
-    print()
-PYEOF
-  echo -e "  ${B}Time  :${N} $TIMESTAMP"
+  R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; C='\033[0;36m'; N='\033[0m'; B='\033[1m'
+  echo -e "${B}${C}╔═════════════════════════════════════════╗${N}"
+  echo -e "${B}${C}║       deckwifi  v1.1              ║${N}"
+  echo -e "${B}${C}╚═════════════════════════════════════════╝${N}"
+  if [ -z "$WIFI_OUT" ]; then
+    echo -e "  ${Y}No WiFi data available.${N}"
+    echo -e "  ${Y}Install termux-api: pkg install termux-api${N}"
+  else
+    echo "$WIFI_TEXT"
+  fi
+  echo -e "  ${B}Time      :${N} $TIMESTAMP"
 fi
 
 if $DO_LOG; then
   mkdir -p "$LOG_DIR"
-  echo "{\"ts\":\"$TIMESTAMP\",\"tool\":\"deckwifi\",\"connected_ssid\":\"$CURRENT_SSID\",\"scan_count\":$NET_COUNT}" >> "$LOG_DIR/tools.log"
+  echo "{\"ts\":\"$TIMESTAMP\",\"tool\":\"deckwifi\",\"networks\":$(echo "$WIFI_JSON" | wc -l)}" >> "$LOG_DIR/tools.log"
 fi

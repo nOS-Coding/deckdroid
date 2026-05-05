@@ -1,83 +1,140 @@
-#!/usr/bin/env python3
-"""decknote — Plain text notes system (Writer Profile)"""
-import sys, os, datetime, pathlib, subprocess, shutil
+#!/usr/bin/env bash
+# decknote — Plain-text markdown notes for DeckDroid
+# Usage: decknote [new|list|view|edit|delete|search] [args...]
 
-NOTES = pathlib.Path.home() / ".termuxdeck/notes"
-TRASH = NOTES / ".trash"
-EDITOR = os.environ.get("EDITOR", "nano")
-BOLD = "\033[1m"; GREEN = "\033[0;32m"; CYAN = "\033[0;36m"; RESET = "\033[0m"
+DDROID_HOME="${DDROID_HOME:-$HOME/.deckdroid}"
+NOTES_DIR="$DDROID_HOME/notes"
+TRASH_DIR="$NOTES_DIR/.trash"
+EDITOR="${EDITOR:-nano}"
 
-def slugify(title):
-    return title.lower().replace(" ", "-").replace("/", "-")[:60]
+# Ensure directories exist
+mkdir -p "$NOTES_DIR" "$TRASH_DIR"
 
-def find_note(partial):
-    matches = [n for n in NOTES.glob("*.md") if partial.lower() in n.name.lower()]
-    return matches[0] if len(matches) == 1 else (None if not matches else matches)
+R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; C='\033[0;36m'; N='\033[0m'; B='\033[1m'
 
-def cmd_new(args):
-    if not args:
-        print("Usage: decknote new <title>"); return
-    title = " ".join(args)
-    date = datetime.date.today().isoformat()
-    fname = NOTES / f"{date}-{slugify(title)}.md"
-    fname.write_text(f"# {title}\n\n> Created: {date}\n\n")
-    subprocess.run([EDITOR, str(fname)])
-    print(f"{GREEN}✓{RESET} Note saved: {fname.name}")
-    if (NOTES.parent / ".git").exists():
-        print(f"\033[0;90m  Reminder: git commit your notes\033[0m")
+case "${1:-}" in
+  new)
+    # Create new note
+    TITLE="${2:-Untitled}"
+    FILENAME=$(echo "$TITLE" | tr ' ' '_' | tr -cd 'a-zA-Z0-9_-').md
+    FILEPATH="$NOTES_DIR/$FILENAME"
+    
+    if [ -f "$FILEPATH" ]; then
+      echo -e "${Y}Note already exists: $FILENAME${N}"
+      FILEPATH="$NOTES_DIR/${TILENAME%.md}_$(date +%s).md"
+    fi
+    
+    DATE=$(date "+%Y-%m-%d %H:%M")
+    cat > "$FILEPATH" <<NOTE
+# $TITLE
 
-def cmd_list(args):
-    notes = sorted(NOTES.glob("*.md"), reverse=True)
-    if not notes:
-        print("No notes found.")
-        return
-    print(f"\n{BOLD}Notes ({len(notes)}){RESET}")
-    for n in notes:
-        size = n.stat().st_size
-        print(f"  {CYAN}{n.stem}{RESET}  ({size} B)")
-    print()
+**Date:** $DATE
 
-def cmd_search(args):
-    if not args:
-        print("Usage: decknote search <query>"); return
-    query = " ".join(args).lower()
-    hits = 0
-    for note in NOTES.glob("*.md"):
-        for i, line in enumerate(note.read_text(errors="replace").splitlines(), 1):
-            if query in line.lower():
-                print(f"  {CYAN}{note.name}:{i}{RESET}  {line.strip()}")
-                hits += 1
-    if not hits:
-        print(f"No results for '{query}'")
-
-def cmd_view(args):
-    if not args:
-        print("Usage: decknote view <partial-title>"); return
-    note = find_note(" ".join(args))
-    if not note:
-        print("Note not found."); return
-    if isinstance(note, list):
-        print("Multiple matches:"); [print(f"  {n.name}") for n in note]; return
-    if shutil.which("mdcat"):
-        subprocess.run(["mdcat", str(note)])
-    else:
-        print(note.read_text())
-
-def cmd_delete(args):
-    if not args:
-        print("Usage: decknote delete <partial-title>"); return
-    note = find_note(" ".join(args))
-    if not note or isinstance(note, list):
-        print("Note not found or ambiguous."); return
-    dest = TRASH / note.name
-    note.rename(dest)
-    print(f"{GREEN}✓{RESET} Moved to trash: {note.name}")
-
-CMDS = {"new": cmd_new, "list": cmd_list, "search": cmd_search, "view": cmd_view, "delete": cmd_delete}
-
-if __name__ == "__main__":
-    args = sys.argv[1:]
-    if not args or args[0] not in CMDS:
-        print("Usage: decknote <new|list|search|view|delete> [args...]")
-        sys.exit(1)
-    CMDS[args[0]](args[1:])
+---
+NOTE
+    echo -e "${G}✓ Created: $FILEPATH${N}"
+    echo -e "${C}Opening in $EDITOR...${N}"
+    $EDITOR "$FILEPATH"
+    ;;
+  
+  list|ls)
+    # List all notes
+    echo -e "${B}${C}╔════════════════════════════════════╗${N}"
+    echo -e "${B}${C}║       decknote — Notes List        ║${N}"
+    echo -e "${B}${C}╚════════════════════════════════════╝${N}"
+    echo ""
+    
+    if [ -z "$(ls -A "$NOTES_DIR"/*.md 2>/dev/null)" ]; then
+      echo -e "${Y}No notes yet. Create one: decknote new \"My Note\"${N}"
+    else
+      count=0
+      for note in "$NOTES_DIR"/*.md; do
+        [ -f "$note" ] || continue
+        count=$((count+1))
+        title=$(head -1 "$note" | sed 's/^# //')
+        modified=$(stat -c %y "$note" 2>/dev/null | cut -d. -f1 || echo "N/A")
+        printf "${C}%2d${N}) %-30s ${DIM}%s${N}\n" "$count" "$title" "$modified"
+      done
+    fi
+    echo ""
+    ;;
+  
+  view|show)
+    # View a note
+    if [ -z "${2:-}" ]; then
+      echo -e "${R}Usage: decknote view <filename>${N}"
+      exit 1
+    fi
+    FILE="$NOTES_DIR/${2%.md}.md"
+    if [ ! -f "$FILE" ]; then
+      echo -e "${R}Note not found: $2${N}"
+      exit 1
+    fi
+    cat "$FILE" | less +G
+    ;;
+  
+  edit)
+    # Edit a note
+    if [ -z "${2:-}" ]; then
+      echo -e "${R}Usage: decknote edit <filename>${N}"
+      exit 1
+    fi
+    FILE="$NOTES_DIR/${2%.md}.md"
+    if [ ! -f "$FILE" ]; then
+      echo -e "${R}Note not found: $2${N}"
+      exit 1
+    fi
+    $EDITOR "$FILE"
+    ;;
+  
+  delete|rm)
+    # Move note to trash
+    if [ -z "${2:-}" ]; then
+      echo -e "${R}Usage: decknote delete <filename>${N}"
+      exit 1
+    fi
+    FILE="$NOTES_DIR/${2%.md}.md"
+    if [ ! -f "$FILE" ]; then
+      echo -e "${R}Note not found: $2${N}"
+      exit 1
+    fi
+    mv "$FILE" "$TRASH_DIR/"
+    echo -e "${G}✓ Moved to trash: $2${N}"
+    ;;
+  
+  search)
+    # Search in notes
+    QUERY="${2:-}"
+    if [ -z "$QUERY" ]; then
+      echo -e "${R}Usage: decknote search <query>${N}"
+      exit 1
+    fi
+    echo -e "${B}${C}Search results for: $QUERY${N}\n"
+    grep -r -i "$QUERY" "$NOTES_DIR"/*.md 2>/dev/null | head -20 | while IFS=: read -r file line content; do
+      title=$(head -1 "$file" | sed 's/^# //')
+      echo -e "${C}$title${N}: $content"
+    done
+    ;;
+  
+  *)
+    # Show help
+    echo -e "${B}${C}╔════════════════════════════════════╗${N}"
+    echo -e "${B}${C}║       decknote — Help                ║${N}"
+    echo -e "${B}${C}╚════════════════════════════════════╝${N}"
+    echo ""
+    echo -e "${B}Usage:${N} decknote <command> [args...]"
+    echo ""
+    echo -e "${B}Commands:${N}"
+    echo -e "  ${C}new${N} <title>      Create a new note"
+    echo -e "  ${C}list${N}            List all notes"
+    echo -e "  ${C}view${N} <file>     View a note (less)"
+    echo -e "  ${C}edit${N} <file>     Edit a note"
+    echo -e "  ${C}delete${N} <file>   Move to trash"
+    echo -e "  ${C}search${N} <query>  Search in notes"
+    echo ""
+    echo -e "${B}Examples:${N}"
+    echo -e "  decknote new \"Meeting Notes\""
+    echo -e "  decknote list"
+    echo -e "  decknote search project"
+    ;;
+esac

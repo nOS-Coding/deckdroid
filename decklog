@@ -1,85 +1,91 @@
-#!/usr/bin/env python3
-"""decklog — Log viewer for TermuxDeck OS"""
-import sys, pathlib, json, subprocess
+#!/data/data/com.termux/files/usr/bin/bash
+# decklog — Log viewer for DeckDroid
+# Usage: decklog [view|tools|errors|clear] [lines]
 
-HOME = pathlib.Path.home()
-LOG_DIR = HOME / ".termuxdeck/logs"
-GREEN = "\033[0;32m"; CYAN = "\033[0;36m"; YELLOW = "\033[1;33m"; RESET = "\033[0m"; BOLD = "\033[1m"
+DDROID_HOME="${DDROID_HOME:-$HOME/.deckdroid}"
+LOG_DIR="$DDROID_HOME/logs"
+TOOLS_LOG="$LOG_DIR/tools.log"
 
-LOG_FILES = {
-    "install": "install.log",
-    "boot": "boot.log",
-    "tools": "tools.log",
-    "disclaimer": "disclaimer.log",
-    "doctor": "doctor.log",
-    "error": "error.log",
+R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; C='\033[0;36m'; N='\033[0m'; B='\033[1m'; DIM='\033[2m'
+
+cmd_view() {
+  LOG_FILE="${1:-$LOG_DIR/deckdroid.log}"
+  LINES="${2:-50}"
+  
+  if [ ! -f "$LOG_FILE" ]; then
+    echo -e "${Y}No logs found.${N}"
+    return 1
+  fi
+  
+  echo -e "${B}${C}╔════════════════════════════════════════════╗${N}"
+  echo -e "${B}${C}║    decklog — View Logs              ║${N}"
+  echo -e "${B}${C}╚════════════════════════════════════════════╝${N}\n"
+  
+  tail -n "$LINES" "$LOG_FILE" | while IFS= read -r line; do
+    # Color JSON logs
+    if echo "$line" | grep -q '"level"'; then
+      echo -e "${DIM}$line${N}"
+    elif echo "$line" | grep -q '"ERROR"'; then
+      echo -e "${R}$line${N}"
+    elif echo "$line" | grep -q '"WARN"'; then
+      echo -e "${Y}$line${N}"
+    else
+      echo -e "${G}$line${N}"
+    fi
+  done
 }
 
-def tail(f, n=20):
-    try:
-        lines = f.read_text().splitlines()
-        return lines[-n:] if len(lines) > n else lines
-    except:
-        return []
+cmd_tools() {
+  if [ ! -f "$TOOLS_LOG" ]; then
+    echo -e "${Y}No tools.log found.${N}"
+    return 1
+  fi
+  
+  echo -e "${B}${C}╔════════════════════════════════════════════╗${N}"
+  echo -e "${B}${C}║    decklog — Tools Log              ║${N}"
+  echo -e "${B}${C}╚════════════════════════════════════════════╝${N}\n"
+  
+  tail -20 "$TOOLS_LOG" | while IFS= read -r line; do
+    echo -e "${DIM}$line${N}"
+  done
+}
 
-def cmd_list(args):
-    if not LOG_DIR.exists():
-        print(f"{YELLOW}No logs found.{RESET}")
-        return
-    print(f"\n{BOLD}{CYAN}TermuxDeck Logs{RESET}")
-    for name, fname in LOG_FILES.items():
-        fpath = LOG_DIR / fname
-        size = fpath.stat().st_size if fpath.exists() else 0
-        print(f"  {CYAN}{name:<12}{RESET}  {fname}  ({size} B)")
-    print()
+cmd_errors() {
+  echo -e "${B}${C}╔════════════════════════════════════════════╗${N}"
+  echo -e "${B}${C}║    decklog — Errors Only            ║${N}"
+  echo -e "${B}${C}╚════════════════════════════════════════════╝${N}\n"
+  
+  if [ -f "$LOG_DIR/deckdroid.log" ]; then
+    grep -i "error\|fail\|critical" "$LOG_DIR/deckdroid.log" | tail -20 | while IFS= read -r line; do
+      echo -e "${R}$line${N}"
+    done
+  fi
+  
+  if [ -f "$TOOLS_LOG" ]; then
+    echo -e "\n${B}Tools Errors:${N}"
+    grep -i "error\|fail" "$TOOLS_LOG" | tail -10
+  fi
+}
 
-def cmd_view(args):
-    name = args[0] if args else "all"
-    if name == "all":
-        for n, fname in LOG_FILES.items():
-            fpath = LOG_DIR / fname
-            if fpath.exists():
-                print(f"\n{BOLD}=== {fname} ==={RESET}")
-                for line in tail(fpath):
-                    print(line)
-    else:
-        fname = LOG_FILES.get(name)
-        if not fname:
-            print(f"Unknown log: {name}")
-            return
-        fpath = LOG_DIR / fname
-        if fpath.exists():
-            for line in tail(fpath):
-                print(line)
-        else:
-            print(f"{YELLOW}Log file not found: {fname}{RESET}")
+cmd_clear() {
+  echo -e "${Y}Clearing logs...${N}"
+  rm -f "$LOG_DIR"/*.log 2>/dev/null
+  echo -e "${G}✓ Logs cleared${N}"
+}
 
-def cmd_clear(args):
-    name = args[0] if args else "all"
-    if name == "all":
-        for fname in LOG_FILES.values():
-            fpath = LOG_DIR / fname
-            if fpath.exists():
-                fpath.unlink()
-        print(f"{GREEN}✓ All logs cleared{RESET}")
-    else:
-        fname = LOG_FILES.get(name)
-        if fname:
-            fpath = LOG_DIR / fname
-            if fpath.exists():
-                fpath.unlink()
-                print(f"{GREEN}✓ {name} log cleared{RESET}")
-
-CMDS = {"list": cmd_list, "view": cmd_view, "clear": cmd_clear}
-
-if __name__ == "__main__":
-    args = sys.argv[1:]
-    if not args or args[0] not in CMDS:
-        print(f"{BOLD}decklog — Log Viewer{RESET}")
-        print(f"Usage: decklog <command>")
-        print(f"Commands:")
-        print(f"  {CYAN}list{RESET}           Show available logs")
-        print(f"  {CYAN}view{RESET} [name]   View log (all, install, boot, tools, doctor)")
-        print(f"  {CYAN}clear{RESET} [name]  Clear log (all or specific)")
-        sys.exit(1)
-    CMDS[args[0]](args[1:])
+# Main
+case "${1:-view}" in
+  view)   cmd_view "$2" "$3" ;;
+  tools)  cmd_tools ;;
+  errors) cmd_errors ;;
+  clear)  cmd_clear ;;
+  *)
+    echo -e "${B}decklog — Log Viewer${N}"
+    echo -e "Usage: decklog <command> [args...]\n"
+    echo -e "${B}Commands:${N}"
+    echo -e "  ${C}view${N}    [file] [lines]  View log file (default: dekcdroid.log)"
+    echo -e "  ${C}tools${N}                  View tools.log"
+    echo -e "  ${C}errors${N}                 Show only errors"
+    echo -e "  ${C}clear${N}                  Clear all logs"
+    ;;
+esac

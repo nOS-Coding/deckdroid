@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DeckDroid config manager — ddeckconf"""
+"""ddeckconf — DeckDroid config manager"""
 import json, sys, os, pathlib
 
 CFG = pathlib.Path.home() / ".deckdroid" / "config.json"
@@ -32,7 +32,6 @@ def set_nested(d, key, value):
     v = d
     for p in parts[:-1]:
         v = v.setdefault(p, {})
-    # Type coercion
     if key in SCHEMA_TYPES:
         t = SCHEMA_TYPES[key]
         if t == bool:
@@ -84,15 +83,15 @@ def cmd_reset(args):
     os.system(f"bash {pathlib.Path.home()}/.deckdroid/install.sh --config-only")
     print("Reset complete.")
 
-COMMANDS = {"get": cmd_get, "set": cmd_set, "list": cmd_list, "validate": cmd_validate, "reset": cmd_reset}
+CMDS = {"get": cmd_get, "set": cmd_set, "list": cmd_list, "validate": cmd_validate, "reset": cmd_reset}
 
 if __name__ == "__main__":
     args = sys.argv[1:]
-    if not args or args[0] not in COMMANDS:
-        print("\033[1mDeckDroid Config Manager\033[0m")
-        print(f"Usage: ddeckconf <command> [args]")
+    if not args or args[0] not in CMDS:
+        print("DeckDroid Config Manager")
+        print("Usage: ddeckconf <command> [args]")
         print("\nCommands:")
-        for c in COMMANDS:
+        for c in CMDS:
             print(f"  {c}")
         sys.exit(1)
-    COMMANDS[args[0]](args[1:])
+    CMDS[args[0]](args[1:])

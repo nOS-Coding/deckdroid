@@ -1,9 +1,9 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# deckping — Multi-layer connectivity audit for TermuxDeck OS
+# deckping — Multi-layer connectivity audit for DeckDroid
 # Checks: Gateway → DNS → Internet → Latency
 # Usage: deckping [--json] [--log] [--host <custom_host>]
 
-LOG_DIR="$HOME/.termuxdeck/logs"
+LOG_DIR="$HOME/.deckdroid/logs"
 JSON_OUT=false
 DO_LOG=false
 CUSTOM_HOST=""
@@ -21,16 +21,16 @@ done
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# ── helpers ──────────────────────────────────────────────────────────────────
+# ── helpers ──────────────────────────────────────────────────────────
 check_ping() {
   ping -c 1 -W 2 "$1" &>/dev/null && echo "OK" || echo "FAIL"
 }
 
 latency_ms() {
-  ping -c 3 -W 2 "$1" 2>/dev/null | awk -F'/' 'END{if($5) printf "%.1f", $5; else print "N/A"}'
+  ping -c 3 -W 2 "$1" 2>/dev/null | awk -F'/' '{if($5) printf "%.1f", $5; else print "N/A"}'
 }
 
-# ── Gateway ───────────────────────────────────────────────────────────────────
+# ── Gateway ───────────────────────────────────────────────────────────
 GW=$(ip route 2>/dev/null | awk '/default/{print $3; exit}')
 GW=${GW:-"N/A"}
 if [ "$GW" != "N/A" ]; then
@@ -40,7 +40,7 @@ else
   GW_STATUS="N/A"; GW_LAT="N/A"
 fi
 
-# ── DNS ───────────────────────────────────────────────────────────────────────
+# ── DNS ───────────────────────────────────────────────────────────────
 DNS_STATUS="FAIL"; DNS_LAT="N/A"
 if command -v nslookup &>/dev/null; then
   nslookup google.com &>/dev/null && DNS_STATUS="OK"
@@ -48,27 +48,30 @@ elif command -v host &>/dev/null; then
   host google.com &>/dev/null && DNS_STATUS="OK"
 elif command -v dig &>/dev/null; then
   dig +short google.com &>/dev/null && DNS_STATUS="OK"
+else
+  # Fallback: use ping to test DNS
+  ping -c 1 -W 2 google.com &>/dev/null && DNS_STATUS="OK"
 fi
 
-# ── Internet ──────────────────────────────────────────────────────────────────
+# ── Internet ──────────────────────────────────────────────────────────
 NET_STATUS=$(check_ping "1.1.1.1")
 NET_LAT=$(latency_ms "1.1.1.1")
 
-# ── HTTP ──────────────────────────────────────────────────────────────────────
+# ── HTTP ──────────────────────────────────────────────────────────────
 HTTP_STATUS="FAIL"
 if command -v curl &>/dev/null; then
   CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://cloudflare.com" 2>/dev/null)
   [ "$CODE" = "200" ] || [ "$CODE" = "301" ] || [ "$CODE" = "302" ] && HTTP_STATUS="OK ($CODE)" || HTTP_STATUS="FAIL ($CODE)"
 fi
 
-# ── Custom host ───────────────────────────────────────────────────────────────
+# ── Custom host ───────────────────────────────────────────────────────
 CUSTOM_STATUS="N/A"; CUSTOM_LAT="N/A"
 if [ -n "$CUSTOM_HOST" ]; then
   CUSTOM_STATUS=$(check_ping "$CUSTOM_HOST")
   CUSTOM_LAT=$(latency_ms "$CUSTOM_HOST")
 fi
 
-# ── Local IP ──────────────────────────────────────────────────────────────────
+# ── Local IP ──────────────────────────────────────────────────────────
 LOCAL_IP=$(ip addr 2>/dev/null | awk '/inet /{print $2}' | grep -v '127.0.0.1' | head -1 | cut -d/ -f1)
 LOCAL_IP=${LOCAL_IP:-"N/A"}
 
@@ -94,9 +97,9 @@ else
   na()   { echo -e "${Y}— N/A${N}"; }
   fmt()  { case $1 in OK*) ok ;; FAIL*) fail ;; *) na ;; esac; }
 
-  echo -e "${B}${C}╔════════════════════════════════╗${N}"
-  echo -e "${B}${C}║       deckping  v1.0           ║${N}"
-  echo -e "${B}${C}╚════════════════════════════════╝${N}"
+  echo -e "${B}${C}╔══════════════════════════════════╗${N}"
+  echo -e "${B}${C}║       deckping  v1.1           ║${N}"
+  echo -e "${B}${C}╚══════════════════════════════════╝${N}"
   echo -e "  ${B}Local IP  :${N} $LOCAL_IP"
   echo -e "  ${B}Gateway   :${N} $GW  $(fmt $GW_STATUS)  ${Y}${GW_LAT}ms${N}"
   echo -e "  ${B}DNS       :${N} $(fmt $DNS_STATUS)"
