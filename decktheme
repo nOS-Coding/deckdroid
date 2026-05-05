@@ -56,37 +56,40 @@ def apply_starship_theme(theme_name, is_profile=False):
         vtheme = VISUAL_THEMES.get(theme_name, {})
         color = vtheme.get("prompt_color", "green")
     
-    theme_config = f"""[character]
-success_color = '{color}'
-error_color = 'red'
+    # Create a minimal starship config
+    theme_config = f"""# DeckDroid Starship Theme - {theme_name}
+add_newline = false
+
+[character]
+success_symbol = "[╰─❯](bold green)"
+error_symbol = "[╰─❌](bold red)"
+
+[username]
+show_always = true
+style_user = "bold green"
+style_root = "bold red"
+
+[hostname]
+ssh_only = false
+style = "bold cyan"
 
 [directory]
-style = '{color}'
+truncation_length = 3
+style = "bold white"
 
-[status]
-success_color = '{color}'
-error_color = 'red'
+[git_branch]
+style = "bold yellow"
+
+[git_status]
+style = "yellow"
+
+# No battery section - use deckbat instead
 """
     
-    if starship_file.exists():
-        content = starship_file.read_text()
-        if "[character]" in content:
-            lines = content.split("\n")
-            new_lines = []
-            in_theme = False
-            for line in lines:
-                if line.strip().startswith("["):
-                    in_theme = False
-                if line.strip() == "[character]":
-                    in_theme = True
-                    continue
-                if not in_theme:
-                    new_lines.append(line)
-            content = "\n".join(new_lines)
-        
-        starship_file.write_text(content + "\n" + theme_config)
-    else:
+    try:
         starship_file.write_text(theme_config)
+    except Exception as e:
+        print(f"{YELLOW}Warning: Could not write starship config: {e}{RESET}")
 
 def cmd_list(args):
     cfg = load_cfg()

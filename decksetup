@@ -84,4 +84,28 @@ if [[ "$PKGS" =~ ^[yY]$ ]]; then
 fi
 
 echo -e "\n${B}${G}✓ Setup complete!${RESET}"
-echo -e "Run ${CYAN}zsh${RESET} to start your DeckDroid experience.\n"
+
+# Auto-apply changes
+echo -e "${Y}Applying changes...${RESET}"
+if [ -f "$HOME/.zshrc" ]; then
+  source "$HOME/.zshrc" 2>/dev/null || true
+  echo -e "  ${G}✓${RESET} Applied .zshrc changes"
+fi
+
+# Setup starship config properly
+if command -v starship &>/dev/null; then
+  echo -e "${Y}Setting up Starship...${RESET}"
+  # Copy starship.toml to correct location
+  if [ -f "starship.toml" ]; then
+    cp "starship.toml" "$DDROID_HOME/starship.toml"
+    export STARSHIP_CONFIG="$DDROID_HOME/starship.toml"
+    echo -e "  ${G}✓${RESET} Starship config copied to $DDROID_HOME"
+  fi
+fi
+
+# Apply theme if set
+if [ -n "$THEME" ] && command -v decktheme &>/dev/null; then
+  decktheme set "$THEME" 2>/dev/null || true
+fi
+
+echo -e "\n${G}Ready!${RESET} Your DeckDroid environment is set up.\n"
