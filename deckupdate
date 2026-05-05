@@ -5,6 +5,7 @@ import json
 import pathlib
 import subprocess
 import os
+import re
 
 HOME = pathlib.Path.home()
 DDROID = HOME / ".deckdroid"
@@ -22,19 +23,18 @@ INSTALL_URL = "https://nos-coding.github.io/deckdroid/install.sh"
 def load_cfg():
     if CFG.exists():
         return json.loads(CFG.read_text())
-    return {"auto_update": False}
+    return {"auto_update": False, "version": "0.0.0"}
 
 def save_cfg(cfg):
     CFG.write_text(json.dumps(cfg, indent=2))
 
 def get_current_version():
     cfg = load_cfg()
-    return cfg.get("version", "unknown")
+    return cfg.get("version", "0.0.0")
 
 def get_latest_version():
-    """Get latest version using curl (more reliable in Termux)"""
+    """Get latest version using curl"""
     try:
-        # Use curl with proper User-Agent and timeout
         result = subprocess.run(
             ["curl", "-sL", "--max-time", "10",
              "-H", "User-Agent: DeckDroid",
@@ -42,15 +42,23 @@ def get_latest_version():
              LATEST_URL],
             capture_output=True, text=True, timeout=15
         )
-        if result.returncode != 0:
+        if result.returncode != 0 or not result.stdout:
             return None
+        
         data = json.loads(result.stdout)
-        return data.get("tag_name", "v0.0.0").lstrip("v")
+        tag = data.get("tag_name", "")
+        # Extract version from tag (v1.1.0 -> 1.1.0)
+        if tag.startswith("v"):
+            return tag[1:]
+        return tag or None
     except Exception as e:
         return None
 
 def parse_version(v):
+    """Parse version string to tuple"""
     try:
+        # Remove leading 'v' if present
+        v = v.lstrip("v")
         return tuple(int(x) for x in v.split("."))
     except:
         return (0,0,0)

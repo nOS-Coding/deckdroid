@@ -1,4 +1,4 @@
-# TermuxDeck OS — Starship prompt config (cyberpunk theme)
+# DeckDroid — Starship prompt config
 add_newline = false
 command_timeout = 500
 
@@ -31,18 +31,11 @@ format = "on [$symbol$branch]($style) "
 style = "yellow"
 format = "([$all_status$ahead_behind]($style)) "
 
-[battery]
-full_symbol = "🔋"
-charging_symbol = "⚡"
-discharging_symbol = "💀"
-[[battery.display]]
-threshold = 30
-style = "bold red"
-[[battery.display]]
-threshold = 100
-style = "green"
+# Battery section removed - causes issues on Android
+# Use deckbat command instead for battery info
 
 [python]
 format = "via [🐍 $version]($style) "
+
 [nodejs]
 format = "via [⬢ $version]($style) "

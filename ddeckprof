@@ -1,40 +1,71 @@
 #!/usr/bin/env python3
 """ddeckprof — DeckDroid Profile Manager"""
-import sys, subprocess, os, pathlib
+import sys
+import subprocess
+import os
+import pathlib
+import json
 
 HOME = pathlib.Path.home()
 DDROID = HOME / ".deckdroid"
 CFG = DDROID / "config.json"
 PROFILES_DIR = DDROID / "profiles"
 
+GREEN = "\033[0;32m"
+YELLOW = "\033[1;33m"
+CYAN = "\033[0;36m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+RED = "\033[0;31m"
+
 PROFILES = {
     "hacker": {
-        "pkgs": ["nmap", "netcat-openbsd", "curl", "wget", "tcpdump", "tshark", "whois", "dnsutils"],
-        "desc": "Security research tools (nmap, tcpdump, etc.)",
+        "name": "hacker",
+        "desc": "Penetration testing & security tools",
+        "pkgs": ["nmap", "tcpdump", "netcat", "tshark", "whois", "dnsutils"],
+        "shell": "hacker.sh",
     },
     "developer": {
+        "name": "developer",
+        "desc": "Development environment",
         "pkgs": ["git", "openssh", "python", "nodejs", "nano"],
-        "desc": "Development environment (git, python, nodejs)",
+        "shell": "developer.sh",
     },
     "writer": {
+        "name": "writer",
+        "desc": "Writing & documentation tools",
         "pkgs": ["mdcat", "pandoc"],
-        "desc": "Writing tools (markdown, pandoc)",
+        "shell": "writer.sh",
     },
     "crypto": {
+        "name": "crypto",
+        "desc": "Cryptography & encryption tools",
         "pkgs": ["gnupg", "openssl"],
-        "desc": "Encryption tools (GPG, openssl)",
+        "shell": "crypto.sh",
     },
     "radio": {
+        "name": "radio",
+        "desc": "SDR & radio hacking tools",
         "pkgs": ["rtl-sdr", "sox", "multimon-ng"],
-        "desc": "SDR tools (RTL-SDR, radio decode)",
+        "shell": "radio.sh",
     },
     "hamradio": {
-        "pkgs": ["hamlib"],
-        "desc": "Amateur radio tools",
+        "name": "hamradio",
+        "desc": "Ham radio tools",
+        "pkgs": ["rtl-sdr", "sox"],
+        "shell": "hamradio.sh",
     },
     "iot": {
+        "name": "iot",
+        "desc": "Internet of Things tools",
         "pkgs": ["python", "mosquitto-clients"],
-        "desc": "IoT tools (serial, MQTT)",
+        "shell": "iot.sh",
+    },
+    "base": {
+        "name": "base",
+        "desc": "Base profile with essential tools",
+        "pkgs": [],
+        "shell": "base.sh",
     },
 }
 
@@ -46,115 +77,114 @@ def load_cfg():
 def save_cfg(cfg):
     CFG.write_text(json.dumps(cfg, indent=2))
 
-def get_active():
-    return load_cfg().get("profiles", [])
-
-def set_active(profile, active=True):
-    cfg = load_cfg()
-    profiles = cfg.get("profiles", [])
-    if active and profile not in profiles:
-        profiles.append(profile)
-    elif not active and profile in profiles:
-        profiles.remove(profile)
-    cfg["profiles"] = profiles
-    save_cfg(cfg)
-
-def install_pkg(pkg):
-    try:
-        result = subprocess.run(
-            ["pkg", "install", "-y", pkg],
-            capture_output=True, text=True, timeout=120
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
-
 def cmd_list(args):
-    active = get_active()
-    print("\nDeckDroid — Available Profiles\n")
+    cfg = load_cfg()
+    active = cfg.get("profiles", [])
+    
+    print(f"\n{BOLD}DeckDroid — Available Profiles{RESET}\n")
     for name, info in PROFILES.items():
-        status = "✓ active" if name in active else "○ inactive"
-        print(f"  {name:<12} [{status}]  {info['desc']}")
-    print()
+        status = f"{GREEN}(active){RESET}" if name in active else ""
+        print(f"  {CYAN}{name}{RESET} {status}")
+        print(f"    {info['desc']}")
+        if info['pkgs']:
+            print(f"    Packages: {', '.join(info['pkgs'])}")
+        print()
 
 def cmd_set(args):
     if not args:
-        print("Usage: ddeckprof set <profile>")
+        print(f"Usage: ddeckprof set <profile>")
         print(f"Available: {', '.join(PROFILES.keys())}")
-        sys.exit(1)
+        return
     
-    profile = args[0]
-    if profile not in PROFILES:
-        print(f"Unknown profile: {profile}")
-        sys.exit(1)
+    name = args[0]
+    if name not in PROFILES:
+        print(f"{RED}Unknown profile: {name}{RESET}")
+        print(f"Available: {', '.join(PROFILES.keys())}")
+        return
     
-    print(f"\nInstalling {profile} profile...\n")
-    for pkg in PROFILES[profile]["pkgs"]:
-        print(f"  Installing {pkg}...", end=" ")
-        if install_pkg(pkg):
-            print("OK")
-        else:
-            print("skipped (may not be available)")
+    cfg = load_cfg()
+    if name not in cfg.get("profiles", []):
+        cfg.setdefault("profiles", []).append(name)
+        save_cfg(cfg)
     
-    set_active(profile, True)
-    print(f"\n✓ {profile} profile activated")
+    # Install packages
+    info = PROFILES[name]
+    if info['pkgs']:
+        print(f"\n{BOLD}Installing packages for {name}...{RESET}\n")
+        for pkg in info['pkgs']:
+            print(f"  {CYAN}Installing {pkg}...{RESET}")
+            try:
+                subprocess.run(["pkg", "install", "-y", pkg], timeout=60)
+            except Exception as e:
+                print(f"  {YELLOW}Failed: {pkg} ({e}){RESET}")
+    
+    # Run profile shell script if exists
+    shell_script = PROFILES_DIR / info['shell']
+    if shell_script.exists():
+        print(f"\n{BOLD}Running {name} profile script...{RESET}")
+        try:
+            subprocess.run(["bash", str(shell_script)])
+        except Exception as e:
+            print(f"{YELLOW}Error running script: {e}{RESET}")
+    
+    print(f"\n{GREEN}✓ Profile '{name}' activated!{RESET}")
+    print(f"  Run: ddeckprof status")
 
 def cmd_unset(args):
     if not args:
-        print("Usage: ddeckprof unset <profile>")
-        sys.exit(1)
-    profile = args[0]
-    if profile not in PROFILES:
-        print(f"Unknown profile: {profile}")
-        sys.exit(1)
-    set_active(profile, False)
-    print(f"✓ {profile} profile deactivated")
-
-def cmd_install_all(args):
-    for name in PROFILES:
-        set_active(name, True)
-        print(f"\n[Installing {name}]")
-        for pkg in PROFILES[name]["pkgs"]:
-            print(f"  {pkg}...", end=" ")
-            if install_pkg(pkg):
-                print("OK")
-            else:
-                print("skipped")
-    print("\n✓ All profiles installed and activated")
+        print(f"Usage: ddeckprof unset <profile>")
+        return
+    
+    name = args[0]
+    cfg = load_cfg()
+    if name in cfg.get("profiles", []):
+        cfg["profiles"].remove(name)
+        save_cfg(cfg)
+        print(f"{YELLOW}✓ Profile '{name}' deactivated.{RESET}")
+    else:
+        print(f"{RED}Profile '{name}' is not active.{RESET}")
 
 def cmd_status(args):
-    active = get_active()
-    if active:
-        print("Active profiles:")
-        for p in active:
-            print(f"  • {p}")
+    cfg = load_cfg()
+    active = cfg.get("profiles", [])
+    
+    print(f"\n{BOLD}DeckDroid — Profile Status{RESET}\n")
+    if not active:
+        print(f"  {YELLOW}No active profiles.{RESET}")
+        print(f"  Run: ddeckprof set <profile>")
     else:
-        print("No profiles active. Run: ddeckprof set <profile>")
+        print(f"  {GREEN}Active profiles:{RESET}")
+        for name in active:
+            info = PROFILES.get(name, {})
+            print(f"    {CYAN}{name}{RESET} — {info.get('desc', 'N/A')}")
+    print()
+
+def cmd_install_all(args):
+    print(f"\n{BOLD}Installing all profiles...{RESET}\n")
+    for name in PROFILES:
+        if name != "base":
+            cmd_set([name])
+    print(f"\n{GREEN}✓ All profiles installed!{RESET}")
 
 CMDS = {
     "list": cmd_list,
     "set": cmd_set,
     "unset": cmd_unset,
-    "install-all": cmd_install_all,
     "status": cmd_status,
+    "install-all": cmd_install_all,
 }
 
 if __name__ == "__main__":
-    if not DDROID.exists():
-        print("DeckDroid not installed.")
-        print("Run: curl -sL https://nos-coding.github.io/deckdroid/install.sh | bash")
-        sys.exit(1)
-    
     args = sys.argv[1:]
     if not args or args[0] not in CMDS:
-        print("DeckDroid Profile Manager")
-        print("Usage: ddeckprof <command> [args]")
-        print("\nCommands:")
-        print("  list         Show available profiles")
-        print("  set <name>   Install and activate a profile")
-        print("  unset <name> Deactivate a profile")
-        print("  install-all  Install all profiles")
-        print("  status       Show active profiles")
+        print(f"{BOLD}ddeckprof — Profile Manager{RESET}")
+        print(f"\nUsage: ddeckprof <command> [args]")
+        print(f"\nCommands:")
+        print(f"  {CYAN}list{RESET}         List all profiles")
+        print(f"  {CYAN}set{RESET} <name>    Activate profile")
+        print(f"  {CYAN}unset{RESET} <name>  Deactivate profile")
+        print(f"  {CYAN}status{RESET}        Show active profiles")
+        print(f"  {CYAN}install-all{RESET}  Install all profiles")
+        print(f"\nProfiles: {', '.join(PROFILES.keys())}")
         sys.exit(1)
-    
     CMDS[args[0]](args[1:])
