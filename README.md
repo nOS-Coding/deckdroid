@@ -92,7 +92,7 @@ tetris
 | Command | Description |
 |---------|-------------|
 | `ddeckconf` | Config manager (get/set/list/validate) |
-| `tdeckprof` | Profile manager (set/unset/list profiles) |
+| `ddeckprof` | Profile manager (set/unset/list profiles) |
 | `deckdroid-doctor` | System health audit and repair |
 | `deckdroid-sync` | Git-backed multi-device config sync |
 | `deckdroid-web` | Local web dashboard (localhost:8080) |
@@ -104,9 +104,9 @@ tetris
 ddeckconf set theme.name ghost
 ddeckconf list
 ddeckconf validate
-tdeckprof list
-tdeckprof set hacker
-tdeckprof status
+ddeckprof list
+ddeckprof set hacker
+ddeckprof status
 deckdroid-doctor
 deckdroid-web
 ```
@@ -118,15 +118,15 @@ deckdroid-web
 Stackable environments tailored to your mission:
 
 ```bash
-tdeckprof list              # Show available profiles
-tdeckprof set writer        # Install + activate writer profile
-tdeckprof set hacker        # Install + activate hacker profile
-tdeckprof set developer     # Install + activate dev profile
-tdeckprof set crypto        # Install + activate crypto profile
-tdeckprof set radio         # Install + activate SDR profile
-tdeckprof set iot           # Install + activate IoT profile
-tdeckprof install-all       # Install everything
-tdeckprof status            # Show active profiles
+ddeckprof list              # Show available profiles
+ddeckprof set writer        # Install + activate writer profile
+ddeckprof set hacker        # Install + activate hacker profile
+ddeckprof set developer     # Install + activate dev profile
+ddeckprof set crypto        # Install + activate crypto profile
+ddeckprof set radio         # Install + activate SDR profile
+ddeckprof set iot           # Install + activate IoT profile
+ddeckprof install-all       # Install everything
+ddeckprof status            # Show active profiles
 ```
 
 | Profile | Packages |
@@ -231,7 +231,7 @@ Runs on all Termux-supported architectures:
 - `deckupdate` — Check for updates
 - `decktheme` — Theme manager (visual + profile themes)
 - `deckdisk` — Disk management (list, mount, unmount, format)
-- `tdeckprof` — Profile manager (install/set/unset profiles)
+- `ddeckprof` — Profile manager (install/set/unset profiles)
 
 #### Improvements
 - All deck tools now support `--json` and `--log` flags
