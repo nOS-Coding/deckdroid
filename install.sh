@@ -114,7 +114,7 @@ deploy_tools() {
     "deckhelp" "deckmenu" "decksetup" "deckai"
   )
   local repo_tools=(
-    "ddeckconf" "tdeckprof" "deckdroid-doctor" "deckdroid-sync"
+    "ddeckconf" "ddeckprof" "deckdroid-doctor" "deckdroid-sync"
     "deckdroid-web" "deckdroid-plugin" "deckdroid-vault"
   )
   local configs=(
