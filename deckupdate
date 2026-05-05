@@ -4,7 +4,6 @@ import sys
 import json
 import pathlib
 import subprocess
-import urllib.request
 import os
 
 HOME = pathlib.Path.home()
@@ -33,11 +32,20 @@ def get_current_version():
     return cfg.get("version", "unknown")
 
 def get_latest_version():
+    """Get latest version using curl (more reliable in Termux)"""
     try:
-        req = urllib.request.Request(LATEST_URL, headers={"User-Agent": "DeckDroid"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
-            return data.get("tag_name", "v0.0.0").lstrip("v")
+        # Use curl with proper User-Agent and timeout
+        result = subprocess.run(
+            ["curl", "-sL", "--max-time", "10",
+             "-H", "User-Agent: DeckDroid",
+             "-H", "Accept: application/json",
+             LATEST_URL],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.returncode != 0:
+            return None
+        data = json.loads(result.stdout)
+        return data.get("tag_name", "v0.0.0").lstrip("v")
     except Exception as e:
         return None
 
@@ -55,6 +63,7 @@ def cmd_check(args):
     latest = get_latest_version()
     if latest is None:
         print(f"\n  {YELLOW}⚠ Could not check for updates (network error){RESET}")
+        print(f"  {YELLOW}Check your internet connection{RESET}")
         return
     
     print(f"  Latest version:  {CYAN}{latest}{RESET}")
@@ -112,8 +121,8 @@ def cmd_upgrade(args):
     
     try:
         result = subprocess.run(
-            ["curl", "-sL", INSTALL_URL],
-            capture_output=True, text=True, timeout=30
+            ["curl", "-sL", "--max-time", "30", INSTALL_URL],
+            capture_output=True, text=True, timeout=35
         )
         if result.returncode != 0:
             print(f"{RED}✗ Failed to download installer{RESET}")
