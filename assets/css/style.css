@@ -10,6 +10,7 @@
   --table-stripe: #f6f8fa;
   --header-bg: #24292e;
   --header-text: #ffffff;
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 }
 
 /* Dark mode */
@@ -23,13 +24,15 @@
     --table-stripe: #161b22;
     --header-bg: #161b22;
     --header-text: #c9d1d9;
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   }
 }
 
 /* Base styles */
 body {
-  background-color: var(--bg-color);
-  color: var(--text-color);
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+  font-family: var(--font-family) !important;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
@@ -92,6 +95,15 @@ blockquote {
 /* Markdown body */
 .markdown-body {
   color: var(--text-color);
+  font-family: var(--font-family) !important;
+}
+
+.markdown-body code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
+}
+
+.markdown-body pre {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
 }
 
 .markdown-body h1, 
