@@ -1,165 +1,238 @@
 #!/usr/bin/env python3
-"""deckhelp — Help utility for DeckDroid"""
-import sys, os, pathlib
+"""deckhelp — Help system for DeckDroid"""
+import sys
+import pathlib
 
-DDROID = pathlib.Path.home() / ".deckdroid"
-GREEN = "\033[0;32m"; YELLOW = "\033[1;33m"; CYAN = "\033[0;36m"; RESET = "\033[0m"; BOLD = "\033[1m"
+HOME = pathlib.Path.home()
+DDROID = HOME / ".deckdroid"
 
-def show_main_help():
-    print(f"""
-{BOLD}{CYAN}
-╔═════════════════════════════════════════════╗
-║           DeckDroid — Help System              ║
-╚═════════════════════════════════════════════╝
-{RESET}
-{BOLD}Cyberdeck Tools:{RESET}
-  {CYAN}deckbat{RESET}      — Advanced battery metrics (temp, voltage, health)
-  {CYAN}deckping{RESET}     — Multi-layer connectivity audit
-  {CYAN}deckid{RESET}       — Deep device identity and network footprint
-  {CYAN}deckwifi{RESET}     — WiFi scanner with signal bars
-  {CYAN}decklocate{RESET}   — GPS + cell tower triangulation
-  {CYAN}deckclock{RESET}    — Multi-timezone world clock
-  {CYAN}decksniff{RESET}    — tcpdump wrapper with preset profiles
-  {CYAN}decknote{RESET}     — Plain-text markdown notes
-  {CYAN}deckbrowse{RESET}   — Universal terminal browser (w3m/lynx)
-  {CYAN}deckdisk{RESET}     — Disk management
-  {CYAN}decklog{RESET}      — Log viewer
-  {CYAN}deckclean{RESET}    — Storage cleanup
-  {CYAN}deckupdate{RESET}   — Check & apply updates
-  {CYAN}decktheme{RESET}    — Theme manager (8 themes + 7 profile themes)
-  {CYAN}deckmenu{RESET}     — Interactive TUI launcher
-  {CYAN}deckai{RESET}       — AI launcher (opencode / gemini-cli)
-  {CYAN}tetris{RESET}       — Play Tetris game
+BOLD   = "\033[1m"
+GREEN  = "\033[0;32m"
+CYAN   = "\033[0;36m"
+YELLOW = "\033[1;33m"
+DIM    = "\033[2m"
+RESET  = "\033[0m"
 
-{BOLD}Repository Tools:{RESET}
-  {CYAN}ddeckconf{RESET}    — Config manager (get/set/list/validate)
-  {CYAN}ddeckprof{RESET}    — Profile manager (set/unset/list)
-  {CYAN}deckdroid-doctor{RESET} — System health audit
-  {CYAN}deckdroid-sync{RESET}    — Multi-device config sync
-  {CYAN}deckdroid-web{RESET}    — Local web dashboard
-  {CYAN}deckdroid-plugin{RESET} — Plugin registry manager
-  {CYAN}deckdroid-vault{RESET}  — GPG encryption for config
-
-{BOLD}Quick Commands:{RESET}
-  {CYAN}decksetup{RESET}    — First-run setup wizard
-  {CYAN}deckhelp{RESET}     — Show this help
-  {CYAN}zsh{RESET}         — Start DeckDroid shell
-  {CYAN}uninstall.sh{RESET} — Uninstall DeckDroid
-
-{BOLD}Usage Examples:{RESET}
-  deckbat --json              # JSON output
-  deckping --host 8.8.8.8     # Custom host
-  deckbrowse github           # Search or open URL
-  decktheme set nord           # Set theme
-  ddeckconf get hostname       # Get config value
-  ddeckprof set hacker        # Activate profile
-  tetris                     # Play Tetris
-""")
+def show_general_help():
+    print(f"{BOLD}DeckDroid — Help System{RESET}\n")
+    print(f"{BOLD}Quick Commands:{RESET}")
+    print(f"  {CYAN}decksetup{RESET}      Run first-time setup")
+    print(f"  {CYAN}decktheme{RESET}      Change visual theme")
+    print(f"  {CYAN}ddeckprof{RESET}      Manage profiles")
+    print(f"  {CYAN}deckupdate{RESET}     Check for updates")
+    print(f"\n{BOLD}Tool Categories:{RESET}")
+    print(f"  {YELLOW}System:{RESET}  deckbat, deckping, deckid, deckclock")
+    print(f"  {YELLOW}Network:{RESET} deckwifi, decklocate, decksniff")
+    print(f"  {YELLOW}Tools:{RESET}   decknote, deckdisk, decklog, deckclean")
+    print(f"  {YELLOW}UI:{RESET}      deckbrowse, deckmenu, decktheme, deckhelp")
+    print(f"\n{DIM}Run 'deckhelp <tool>' for tool-specific help{RESET}\n")
 
 def show_tool_help(tool):
-    """Show help for a specific tool."""
-    help_text = {
+    help_texts = {
         "deckbat": """
-{CYAN}deckbat{RESET} — Battery Metrics
-{BOLD}Usage:{RESET} deckbat [--json] [--log] [--alert <pct>]
+deckbat — Battery metrics
+Usage: deckbat [--json] [--log] [--alert <pct>]
 
-  Shows battery level, status, temperature, voltage, health.
-  Requires Termux:API: pkg install termux-api
-
-{BOLD}Options:{RESET}
-  --json    Output as JSON
-  --log     Log to ~/.deckdroid/logs/tools.log
-  --alert   Alert when battery below threshold
-
-{BOLD}Examples:{RESET}
-  deckbat
-  deckbat --json
-  deckbat --alert 20
+Examples:
+  deckbat              Show battery info
+  deckbat --json      JSON output
+  deckbat --alert 20  Alert when below 20%
 """,
         "deckping": """
-{CYAN}deckping{RESET} — Connectivity Audit
-{BOLD}Usage:{RESET} deckping [--json] [--log] [--host <addr>]
+deckping — Connectivity check
+Usage: deckping [--host <ip>]
 
-  Checks: Gateway → DNS → Internet → HTTP latency.
+Examples:
+  deckping              Check internet
+  deckping --host 8.8.8.8
+""",
+        "deckid": """
+deckid — Device identity
+Usage: deckid [--json] [--log]
 
-{BOLD}Options:{RESET}
-  --json      Output as JSON
-  --log       Log to ~/.deckdroid/logs/tools.log
-  --host      Check custom host
+Examples:
+  deckid           Show device info
+  deckid --json    JSON output
+""",
+        "deckclock": """
+deckclock — World clock
+Usage: deckclock [--zone <tz>] [--ntp]
 
-{BOLD}Examples:{RESET}
-  deckping
-  deckping --host google.com
+Examples:
+  deckclock              Show local time
+  deckclock --zone UTC  Show UTC time
+""",
+        "deckwifi": """
+deckwifi — WiFi scanner
+Usage: deckwifi [--json] [--log]
+
+Examples:
+  deckwifi          Scan WiFi networks
+  deckwifi --json   JSON output
+""",
+        "decklocate": """
+decklocate — Location services
+Usage: decklocate <command>
+
+Commands:
+  get       Get current location
+  track N   Track for N seconds
+
+Examples:
+  decklocate get
+  decklocate track 10
+""",
+        "decksniff": """
+decksniff — Packet capture
+Usage: decksniff [--preset <name>] [--interface <if>]
+
+Presets: dns, http, ssh, tls, default
+Examples:
+  decksniff --preset dns
+  decksniff --interface wlan0
+""",
+        "decknote": """
+decknote — Notes system
+Usage: decknote [--list] [--new <title>] [--search <query>]
+
+Examples:
+  decknote              List notes
+  decknote --new "Idea"  Create new note
+  decknote --search foo  Search notes
 """,
         "deckbrowse": """
-{CYAN}deckbrowse{RESET} — Terminal Browser
-{BOLD}Usage:{RESET} deckbrowse [url|query]
+deckbrowse — Terminal browser
+Usage: deckbrowse [URL|query]
 
-  Universal browser using w3m/lynx/browsh.
-  Press Enter to submit searches.
+Examples:
+  deckbrowse github
+  deckbrowse https://example.com
+  deckbrowse search termux
+""",
+        "deckdisk": """
+deckdisk — Disk management
+Usage: deckdisk <command>
 
-{BOLD}Examples:{RESET}
-  deckbrowse                    # Interactive launcher
-  deckbrowse github           # Opens GitHub
-  deckbrowse "weather today"   # Google search
+Commands:
+  list       List disks
+  mount      Mount disk
+  unmount    Unmount disk
+
+Examples:
+  deckdisk list
+""",
+        "decklog": """
+decklog — Log viewer
+Usage: decklog <command>
+
+Commands:
+  view <tool>   View log for tool
+  clear         Clear all logs
+
+Examples:
+  decklog view deckbat
+""",
+        "deckclean": """
+deckclean — Cleanup utility
+Usage: deckclean [check|run]
+
+Examples:
+  deckclean check   Check cleanup candidates
+  deckclean run     Perform cleanup
+""",
+        "deckupdate": """
+deckupdate — Update manager
+Usage: deckupdate <command>
+
+Commands:
+  check    Check for updates
+  upgrade  Upgrade to latest
+  auto     Toggle auto-update
+  status   Show update status
+  info     Show version info
+
+Examples:
+  deckupdate check
+  deckupdate upgrade
 """,
         "decktheme": """
-{CYAN}decktheme{RESET} — Theme Manager
-{BOLD}Usage:{RESET} decktheme <command>
+decktheme — Theme manager
+Usage: decktheme <command>
 
-{BOLD}Visual Themes:{RESET} cyberpunk, ghost, blood, matrix, nord, dracula, monokai, ocean
-{BOLD}Profile Themes:{RESET} hacker, developer, writer, crypto, radio, hamradio, iot
+Commands:
+  list       List all themes
+  set <name> Set theme
 
-{BOLD}Examples:{RESET}
-  decktheme list              # List all themes
-  decktheme set nord           # Set visual theme
-  decktheme set hacker        # Set profile theme
+Visual Themes: cyberpunk, ghost, blood, matrix, nord, dracula, monokai, ocean
+Profile Themes: hacker, developer, writer, crypto, radio, hamradio, iot
+
+Examples:
+  decktheme list
+  decktheme set nord
 """,
-        "ddeckconf": """
-{CYAN}ddeckconf{RESET} — Config Manager
-{BOLD}Usage:{RESET} ddeckconf <command> [args...]
+        "deckmenu": """
+deckmenu — Interactive launcher
+Usage: deckmenu
 
-{BOLD}Commands:{RESET}
-  get <key>       Get config value (dot notation)
-  set <key> <val>  Set config value
-  list             List all config
-  validate         Validate config.json
-
-{BOLD}Examples:{RESET}
-  ddeckconf get hostname
-  ddeckconf set theme.name ghost
-  ddeckconf list
+Navigate with number keys, 'q' to quit.
 """,
-        "ddeckprof": """
-{CYAN}ddeckprof{RESET} — Profile Manager
-{BOLD}Usage:{RESET} ddeckprof <command> [args...]
+        "decksetup": """
+decksetup — First-run wizard
+Usage: decksetup
 
-{BOLD}Commands:{RESET}
-  list             Show available profiles
-  set <name>       Install and activate profile
-  unset <name>     Deactivate profile
-  install-all      Install all profiles
-  status           Show active profiles
+Guides you through:
+  - Hostname setup
+  - Profile selection
+  - Theme selection
+  - Auto-update configuration
+""",
+        "deckai": """
+deckai — AI launcher
+Usage: deckai
 
-{BOLD}Profiles:{RESET} hacker, developer, writer, crypto, radio, hamradio, iot
+Interactive menu to launch:
+  - opencode
+  - gemini-cli
+""",
+        "tetris": """
+tetris — Tetris game
+Usage: tetris
 
-{BOLD}Examples:{RESET}
-  ddeckprof list
-  ddeckprof set writer
-  ddeckprof status
+Controls: Arrow keys to move, Space to rotate, Backspace to exit
 """,
     }
     
-    if tool in help_text:
-        print(help_text[tool].format(GREEN=GREEN, YELLOW=YELLOW, CYAN=CYAN, RESET=RESET, BOLD=BOLD))
+    if tool in help_texts:
+        print(help_texts[tool])
     else:
-        print(f"Unknown tool: {tool}")
-        print(f"Run {CYAN}deckhelp{RESET} to see all tools.")
+        print(f"{YELLOW}No help available for '{tool}'{RESET}")
+        print(f"Available tools: {', '.join(help_texts.keys())}\n")
+
+def show_all_tools():
+    print(f"{BOLD}All DeckDroid Tools:{RESET}\n")
+    
+    categories = {
+        "System": ["deckbat", "deckping", "deckid", "deckclock"],
+        "Network": ["deckwifi", "decklocate", "decksniff"],
+        "Productivity": ["decknote", "deckdisk", "decklog", "deckclean"],
+        "UI/Themes": ["deckbrowse", "deckmenu", "decktheme", "deckhelp"],
+        "Management": ["decksetup", "deckupdate", "ddeckconf", "ddeckprof"],
+        "AI/Games": ["deckai", "tetris"],
+        "Repo Tools": ["deckdroid-doctor", "deckdroid-sync", "deckdroid-web", "deckdroid-plugin", "deckdroid-vault", "deckremove"],
+    }
+    
+    for cat, tools in categories.items():
+        print(f"{YELLOW}{cat}:{RESET}")
+        for t in tools:
+            print(f"  {CYAN}{t}{RESET}")
+        print()
 
 if __name__ == "__main__":
     args = sys.argv[1:]
     
     if not args:
-        show_main_help()
+        show_general_help()
+    elif args[0] == "all":
+        show_all_tools()
     else:
-        show_tool_help(args[0].lower())
+        show_tool_help(args[0])

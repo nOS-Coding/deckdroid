@@ -21,9 +21,9 @@ echo ""
 
 read -r -p $'\e[1mAre you sure you want to continue? (y/n): \e[0m' confirm
 case "$confirm" in
-  y|Y) ;;
+  [yY]) ;;
   *) echo -e "${Y}Cancelled.${RESET}"; exit 0 ;;
-esac;
+esac
 
 # Remove symlinks
 echo -e "\n${B}${CYAN}Removing symlinks...${RESET}"

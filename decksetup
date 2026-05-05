@@ -1,135 +1,87 @@
 #!/usr/bin/env bash
-# decksetup — DeckDroid First-Run Setup Wizard
-set -euo pipefail
+# decksetup — First-run setup wizard for DeckDroid
+# Usage: decksetup
+set -eo pipefail
 
 DDROID_HOME="${DDROID_HOME:-$HOME/.deckdroid}"
 CFG="$DDROID_HOME/config.json"
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
+R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; CYAN='\033[0;36m'
+B='\033[1m'; RESET='\033[0m'
 
-echo -e "${BOLD}${CYAN}"
-echo "╔═════════════════════════════════════════════╗"
-echo "║       DeckDroid — First-Run Setup Wizard        ║"
-echo "╚═════════════════════════════════════════════╝${RESET}"
+echo -e "${B}${CYAN}"
+echo "╔══════════════════════════════════════════╗"
+echo "║     DeckDroid — Setup Wizard              ║"
+echo "╚══════════════════════════════════════════╝${RESET}"
 echo ""
 
-# ── Hostname ──────────────────────────────────────
-echo -e "${BOLD}1. Hostname${RESET}"
-echo -e "${DIM}   Enter a name for your device:${RESET}"
-read -r -p "   Hostname: " HOSTNAME
+# Hostname
+echo -e "${B}1. Hostname Setup${RESET}"
+echo -e "${DIM}Current: $(jq -r '.hostname // "droid"' "$CFG" 2>/dev/null)${RESET}"
+read -r -p "Enter hostname [droid-XXXX]: " HOSTNAME
 HOSTNAME=${HOSTNAME:-"droid-$(printf "%04x" $RANDOM)"}
 
-if command -v python3 &>/dev/null; then
-  python3 -c "
-import json
-cfg = json.load(open('$CFG'))
-cfg['hostname'] = '$HOSTNAME'
-json.dump(cfg, open('$CFG', 'w'), indent=2)
-"
-  echo -e "${GREEN}✓ Hostname set to: $HOSTNAME${RESET}"
+if [ -f "$CFG" ]; then
+    jq --arg hn "$HOSTNAME" '.hostname = $hn' "$CFG" > "$CFG.tmp" && mv "$CFG.tmp" "$CFG"
+else
+    mkdir -p "$DDROID_HOME"
+    cat > "$CFG" <<EOF
+{
+  "version": "1.1.0",
+  "hostname": "$HOSTNAME",
+  "profiles": [],
+  "theme": {"name": "cyberpunk", "type": "visual"}
+}
+EOF
 fi
+echo -e "${G}✓ Hostname set to: $HOSTNAME${RESET}\n"
 
-# ── Profile ─────────────────────────────────────────
-echo ""
-echo -e "${BOLD}2. Profile${RESET}"
-echo -e "${DIM}   Choose your mission profile:${RESET}"
-echo -e "   ${CYAN}1${RESET}) hacker     — Security tools (nmap, tcpdump, etc.)"
-echo -e "   ${CYAN}2${RESET}) developer  — Dev environment (git, python, nodejs)"
-echo -e "   ${CYAN}3${RESET}) writer     — Writing tools (markdown, pandoc)"
-echo -e "   ${CYAN}4${RESET}) crypto     — Encryption tools (GPG, openssl)"
-echo -e "   ${CYAN}5${RESET}) radio      — SDR tools (RTL-SDR, radio)"
-echo -e "   ${CYAN}6${RESET}) iot        — IoT tools (serial, MQTT)"
-echo -e "   ${CYAN}0${RESET}) Skip"
-
-read -r -p "   Choice: " PROFILE_CHOICE
-
-case "$PROFILE_CHOICE" in
-  1) PROFILE="hacker" ;;
-  2) PROFILE="developer" ;;
-  3) PROFILE="writer" ;;
-  4) PROFILE="crypto" ;;
-  5) PROFILE="radio" ;;
-  6) PROFILE="iot" ;;
-  *) echo -e "${YELLOW}Skipping profile selection.${RESET}"; PROFILE="" ;;
-esac
+# Profile
+echo -e "${B}2. Profile Selection${RESET}"
+echo -e "Available: ${CYAN}hacker${RESET}, ${CYAN}developer${RESET}, ${CYAN}writer${RESET}, ${CYAN}crypto${RESET}, ${CYAN}radio${RESET}, ${CYAN}iot${RESET}"
+read -r -p "Select profile (or skip): " PROFILE
 
 if [ -n "$PROFILE" ]; then
-  echo -e "${CYAN}Installing $PROFILE profile...${RESET}"
-  if command -v ddeckprof &>/dev/null; then
-    ddeckprof set "$PROFILE" 2>/dev/null || echo -e "${YELLOW}Profile install skipped (may not be available)${RESET}"
-  fi
+    echo -e "${Y}Installing profile: $PROFILE${RESET}"
+    if command -v ddeckprof &>/dev/null; then
+        ddeckprof set "$PROFILE"
+    else
+        echo -e "${Y}⚠ ddeckprof not found. Install profiles manually later.${RESET}"
+    fi
 fi
 
-# ── Theme ───────────────────────────────────────────
-echo ""
-echo -e "${BOLD}3. Theme${RESET}"
-echo -e "${DIM}   Choose your visual theme:${RESET}"
-echo -e "   ${CYAN}1${RESET}) cyberpunk — Green/cyan, matrix-style (default)"
-echo -e "   ${CYAN}2${RESET}) ghost      — White/grey, minimal"
-echo -e "   ${CYAN}3${RESET}) blood      — Deep red, aggressive"
-echo -e "   ${CYAN}4${RESET}) nord       — Arctic blue"
-echo -e "   ${CYAN}5${RESET}) ocean      — Deep blue"
-echo -e "   ${CYAN}0${RESET}) Skip"
+# Theme
+echo -e "\n${B}3. Theme Selection${RESET}"
+echo -e "Visual themes: ${CYAN}cyberpunk${RESET}, ${CYAN}ghost${RESET}, ${CYAN}blood${RESET}, ${CYAN}matrix${RESET}, ${CYAN}nord${RESET}, ${CYAN}dracula${RESET}, ${CYAN}monokai${RESET}, ${CYAN}ocean${RESET}"
+read -r -p "Select theme [cyberpunk]: " THEME
+THEME=${THEME:-cyberpunk}
 
-read -r -p "   Choice: " THEME_CHOICE
-
-case "$THEME_CHOICE" in
-  1) THEME="cyberpunk" ;;
-  2) THEME="ghost" ;;
-  3) THEME="blood" ;;
-  4) THEME="nord" ;;
-  5) THEME="ocean" ;;
-  *) echo -e "${YELLOW}Skipping theme selection.${RESET}"; THEME="" ;;
-esac
-
-if [ -n "$THEME" ]; then
-  if command -v decktheme &>/dev/null; then
-    decktheme set "$THEME" 2>/dev/null || echo -e "${YELLOW}Theme set skipped${RESET}"
-  fi
-fi
-
-# ── Auto-update ─────────────────────────────────────
-echo ""
-echo -e "${BOLD}4. Auto-Update${RESET}"
-echo -e "${DIM}   Enable automatic update checks?${RESET}"
-echo -e "   ${CYAN}1${RESET}) Yes — Check for updates on shell start"
-echo -e "   ${CYAN}2${RESET}) No  — Manual updates only"
-
-read -r -p "   Choice: " AUTO_CHOICE
-
-if [ "$AUTO_CHOICE" = "1" ]; then
-  if command -v deckupdate &>/dev/null; then
-    deckupdate auto on 2>/dev/null || true
-    echo -e "${GREEN}✓ Auto-update enabled${RESET}"
-  fi
+if command -v decktheme &>/dev/null; then
+    decktheme set "$THEME"
 else
-  echo -e "${YELLOW}Auto-update disabled.${RESET}"
+    echo -e "${Y}⚠ decktheme not found. Set theme manually later.${RESET}"
 fi
 
-# ── Additional packages ────────────────────────────
-echo ""
-echo -e "${BOLD}5. Additional Packages${RESET}"
-echo -e "${DIM}   Install some handy extras?${RESET}"
-echo -e "   ${CYAN}1${RESET}) Yes — Install vim, htop, neofetch"
-echo -e "   ${CYAN}2${RESET}) No  — Skip"
-
-read -r -p "   Choice: " PKGS_CHOICE
-
-if [ "$PKGS_CHOICE" = "1" ]; then
-  echo -e "${CYAN}Installing extras...${RESET}"
-  pkg install -y vim htop neofetch 2>/dev/null || echo -e "${YELLOW}Some packages may not be available${RESET}"
+# Auto-update
+echo -e "\n${B}4. Auto-Update${RESET}"
+read -r -p "Enable auto-update? (y/n) [n]: " AUTO
+if [[ "$AUTO" =~ ^[yY]$ ]]; then
+    if [ -f "$CFG" ]; then
+        jq '.auto_update = true' "$CFG" > "$CFG.tmp" && mv "$CFG.tmp" "$CFG"
+        echo -e "${G}✓ Auto-update enabled${RESET}"
+    fi
+else
+    echo -e "${Y}◦ Auto-update disabled${RESET}"
 fi
 
-# ── Finish ───────────────────────────────────────────
-echo ""
-echo -e "${BOLD}${GREEN}"
-echo "╔═════════════════════════════════════════════╗"
-echo "║       DeckDroid Setup Complete!               ║"
-echo "╚═════════════════════════════════════════════╝${RESET}"
-echo ""
-echo -e "${CYAN}Run these commands:${RESET}"
-echo -e "  ${BOLD}zsh${RESET}        — Start DeckDroid shell"
-echo -e "  ${BOLD}deckmenu${RESET}    — Launch interactive menu"
-echo -e "  ${BOLD}deckhelp${RESET}    — View help"
-echo ""
+# Additional packages
+echo -e "\n${B}5. Additional Packages${RESET}"
+echo -e "${DIM}Recommended: nmap, tcpdump, git, python, nodejs${RESET}"
+read -r -p "Install additional packages? (y/n) [n]: " PKGS
+if [[ "$PKGS" =~ ^[yY]$ ]]; then
+    echo -e "${Y}Installing packages...${RESET}"
+    pkg install -y nmap tcpdump 2>/dev/null || true
+fi
+
+echo -e "\n${B}${G}✓ Setup complete!${RESET}"
+echo -e "Run ${CYAN}zsh${RESET} to start your DeckDroid experience.\n"

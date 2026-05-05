@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # tetris — DeckDroid Tetris game launcher
-# Installs and launches tetris from https://github.com/samtay/tetris
-set -euo pipefail
+# Installs and launches tetris from https://github.com/kt97679/tetris
+set -eo pipefail
 
 DDROID_HOME="${DDROID_HOME:-$HOME/.deckdroid}"
 TETRIS_DIR="$DDROID_HOME/games/tetris"
 TETRIS_SCRIPT="$TETRIS_DIR/tetris.sh"
-# Fixed URL: raw file from GitHub
-TETRIS_URL="https://raw.githubusercontent.com/samtay/tetris/main/tetris.sh"
+# Working URL: raw file from GitHub
+TETRIS_URL="https://raw.githubusercontent.com/kt97679/tetris/master/tetris.sh"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'

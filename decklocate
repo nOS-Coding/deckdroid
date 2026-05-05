@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
 """decklocate — GPS + cell tower triangulation for DeckDroid"""
-import sys, json, subprocess, pathlib
+import sys
+import json
+import subprocess
+import pathlib
 
 DDROID = pathlib.Path.home() / ".deckdroid"
 CFG = DDROID / "config.json"
-GREEN = "\033[0;32m"; YELLOW = "\033[1;33m"; CYAN = "\033[0;36m"; RESET = "\033[0m"; BOLD = "\033[1m"; RED = "\033[0;31m"
+GREEN = "\033[0;32m"
+YELLOW = "\033[1;33m"
+CYAN = "\033[0;36m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+RED = "\033[0;31m"
 
 def load_cfg():
     try:
@@ -13,111 +21,88 @@ def load_cfg():
         return {}
 
 def get_location_gps():
-    """Get GPS location via termux-api (with timeout)."""
     try:
         result = subprocess.run(
             ["timeout", "10", "termux-location", "-p", "gps"],
             capture_output=True, text=True, timeout=15
         )
-        if result.returncode == 0 and result.stdout.strip():
+        if result.returncode == 0:
             return json.loads(result.stdout)
     except Exception:
         pass
     return None
 
 def get_location_network():
-    """Get network location via termux-api (with timeout)."""
     try:
         result = subprocess.run(
             ["timeout", "10", "termux-location", "-p", "network"],
             capture_output=True, text=True, timeout=15
         )
-        if result.returncode == 0 and result.stdout.strip():
+        if result.returncode == 0:
             return json.loads(result.stdout)
     except Exception:
         pass
     return None
 
 def cmd_get(args):
-    """Get current location."""
-    print(f"\n{BOLD}{CYAN}decklocate — GPS Location{RESET}\n")
+    print(f"\n{BOLD}decklocate — Location Services{RESET}\n")
     
-    # Try GPS first
-    print(f"{YELLOW}Fetching GPS location (10s timeout)...{RESET}")
-    loc = get_location_gps()
+    print(f"{BOLD}GPS Location:{RESET}")
+    gps = get_location_gps()
+    if gps:
+        print(f"  Latitude:  {CYAN}{gps.get('latitude', 'N/A')}{RESET}")
+        print(f"  Longitude: {CYAN}{gps.get('longitude', 'N/A')}{RESET}")
+        print(f"  Accuracy:  {gps.get('accuracy', 'N/A')}m")
+        print(f"  Altitude:  {gps.get('altitude', 'N/A')}m")
+    else:
+        print(f"  {YELLOW}GPS unavailable (check permissions){RESET}")
     
-    if not loc:
-        print(f"{YELLOW}GPS unavailable, trying network location...{RESET}")
-        loc = get_location_network()
-    
-    if not loc:
-        print(f"{RED}No location data available.{RESET}")
-        print(f"Install termux-api: pkg install termux-api")
-        return
-    
-    print(f"\n{BOLD}Location:{RESET}")
-    print(f"  {BOLD}Latitude: {CYAN}{loc.get('latitude', 'N/A')}{RESET}")
-    print(f"  {BOLD}Longitude:{CYAN}{loc.get('longitude', 'N/A')}{RESET}")
-    print(f"  {BOLD}Accuracy: {CYAN}{loc.get('accuracy', 'N/A')}m{RESET}")
-    
-    if "altitude" in loc:
-        print(f"  {BOLD}Altitude: {CYAN}{loc['altitude']}m{RESET}")
-    if "speed" in loc:
-        print(f"  {BOLD}Speed:    {CYAN}{loc['speed']}m/s{RESET}")
-    
-    print(f"  {BOLD}Time:     {RESET}{loc.get('time', 'N/A')}")
+    print(f"\n{BOLD}Network Location:{RESET}")
+    net = get_location_network()
+    if net:
+        print(f"  Latitude:  {CYAN}{net.get('latitude', 'N/A')}{RESET}")
+        print(f"  Longitude: {CYAN}{net.get('longitude', 'N/A')}{RESET}")
+        print(f"  Accuracy:  {net.get('accuracy', 'N/A')}m")
+    else:
+        print(f"  {YELLOW}Network location unavailable{RESET}")
     print()
 
 def cmd_track(args):
-    """Track location for N seconds."""
+    if not args:
+        print("Usage: decklocate track <seconds>")
+        print("Example: decklocate track 10")
+        return
+    
     try:
-        seconds = int(args[0]) if args else 60
+        seconds = int(args[0])
     except ValueError:
-        seconds = 60
+        print(f"{RED}Invalid time: {args[0]}{RESET}")
+        return
     
-    print(f"\n{BOLD}{CYAN}Tracking location for {seconds}s...{RESET}")
-    print(f"{YELLOW}Press Ctrl+C to stop early.\n{RESET}")
+    print(f"\n{BOLD}Tracking location for {seconds} seconds...{RESET}\n")
+    print(f"Press Ctrl+C to stop\n")
     
     try:
-        subprocess.run(
-            ["timeout", str(seconds), "termux-location", "-p", "gps"],
-            timeout=seconds + 5
-        )
+        for i in range(seconds):
+            gps = get_location_gps()
+            if gps:
+                print(f"\r  {CYAN}{gps['latitude']:.6f}, {gps['longitude']:.6f}{RESET}  (acc: {gps.get('accuracy', 'N/A')}m)", end="")
+            import time
+            time.sleep(1)
+        print()
     except KeyboardInterrupt:
-        print(f"\n{GREEN}Tracking stopped.{RESET}")
-    except Exception as e:
-        print(f"{RED}Error: {e}{RESET}")
-
-def cmd_cell(args):
-    """Show cell tower info (if available)."""
-    print(f"\n{BOLD}{CYAN}Cell Tower Info{RESET}\n")
-    
-    try:
-        result = subprocess.run(
-            ["timeout", "10", "termux-telephony-cellinfo"],
-            capture_output=True, text=True, timeout=15
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            cell = json.loads(result.stdout)
-            print(f"{BOLD}Cell Info:{RESET}")
-            for key, value in cell.items():
-                print(f"  {BOLD}{key:<15}:{RESET} {value}")
-        else:
-            print(f"{YELLOW}Cell info not available.{RESET}")
-    except Exception as e:
-        print(f"{RED}Error: {e}{RESET}")
+        print(f"\n\n{YELLOW}Tracking stopped.{RESET}")
     print()
 
-CMDS = {"get": cmd_get, "track": cmd_track, "cell": cmd_cell}
+CMDS = {"get": cmd_get, "track": cmd_track}
 
 if __name__ == "__main__":
     args = sys.argv[1:]
     if not args or args[0] not in CMDS:
         print(f"{BOLD}decklocate — Location Services{RESET}")
-        print(f"Usage: decklocate <command> [args...]\n")
-        print(f"Commands:")
-        print(f"  {CYAN}get{RESET}     Get current GPS/network location")
-        print(f"  {CYAN}track{RESET} [seconds]  Track location for N seconds (default: 60)")
-        print(f"  {CYAN}cell{RESET}    Show cell tower information")
+        print(f"\nUsage: decklocate <command>")
+        print(f"\nCommands:")
+        print(f"  {CYAN}get{RESET}       Get current location (GPS + Network)")
+        print(f"  {CYAN}track{RESET} <sec>  Track location for N seconds")
         sys.exit(1)
     CMDS[args[0]](args[1:])

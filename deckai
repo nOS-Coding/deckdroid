@@ -1,164 +1,114 @@
-#!/usr/bin/env bash
-# deckai — DeckDroid AI launcher (opencode / gemini-cli)
-set -euo pipefail
+#!/usr/bin/env python3
+"""deckai — AI launcher for DeckDroid"""
+import sys
+import os
+import subprocess
 
-DDROID_HOME="${DDROID_HOME:-$HOME/.deckdroid}"
-CFG="$DDROID_HOME/config.json"
+BOLD   = "\033[1m"
+GREEN  = "\033[0;32m"
+CYAN   = "\033[0;36m"
+YELLOW = "\033[1;33m"
+RED    = "\033[0;31m"
+RESET  = "\033[0m"
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
+def check_opencode():
+    return os.system("which opencode > /dev/null 2>&1") == 0
 
-has_opencode()  { command -v opencode &>/dev/null; }
-has_gemini_cli() { command -v gemini &>/dev/null || command -v gemini-cli &>/dev/null; }
+def check_gemini():
+    return os.system("which gemini-cli > /dev/null 2>&1") == 0
 
-get_ai_selection() {
-  if [ -f "$CFG" ] && command -v python3 &>/dev/null; then
-    python3 -c "
-import json, sys
-try:
-    cfg = json.load(open('$CFG'))
-    print(cfg.get('ai', {}).get('selection', ''))
-except:
-    print('')
-" 2>/dev/null || echo ""
-  else
-    echo ""
-  fi
-}
+def install_opencode():
+    print(f"\n{BOLD}Installing opencode...{RESET}\n")
+    try:
+        subprocess.run(["npm", "install", "-g", "@opencode/opencode"], check=True)
+        print(f"{GREEN}✓ opencode installed!{RESET}")
+        return True
+    except Exception as e:
+        print(f"{RED}✗ Failed: {e}{RESET}")
+        return False
 
-save_ai_selection() {
-  local selection="$1"
-  if [ -f "$CFG" ] && command -v python3 &>/dev/null; then
-    python3 -c "
-import json
-cfg = json.load(open('$DDROID_HOME/config.json'))
-cfg['ai'] = cfg.get('ai', {})
-cfg['ai']['selection'] = '$selection'
-json.dump(cfg, open('$DDROID_HOME/config.json', 'w'), indent=2)
-" 2>/dev/null || true
-  fi
-}
+def install_gemini():
+    print(f"\n{BOLD}Installing gemini-cli...{RESET}\n")
+    try:
+        subprocess.run(["npm", "install", "-g", "@google/gemini-cli"], check=True)
+        print(f"{GREEN}✓ gemini-cli installed!{RESET}")
+        return True
+    except Exception as e:
+        print(f"{RED}✗ Failed: {e}{RESET}")
+        return False
 
-install_opencode() {
-  echo -e "\n${BOLD}${GREEN}Installing opencode from DioNanos/opencode-termux...${RESET}"
-  if command -v npm &>/dev/null; then
-    npm install -g https://github.com/DioNanos/opencode-termux 2>&1 | tail -5
-  else
-    echo -e "${YELLOW}npm not found. Install nodejs first: pkg install nodejs${RESET}"
-    return 1
-  fi
-}
+def launch_opencode():
+    print(f"\n{GREEN}Launching opencode...{RESET}\n")
+    try:
+        subprocess.run(["opencode"])
+    except KeyboardInterrupt:
+        print(f"\n{YELLOW}Closed.{RESET}")
 
-install_gemini_cli() {
-  echo -e "\n${BOLD}${GREEN}Installing gemini-cli from Hope2333/gemini-cli-termux...${RESET}"
-  if command -v npm &>/dev/null; then
-    npm install -g https://github.com/Hope2333/gemini-cli-termux 2>&1 | tail -5
-  else
-    echo -e "${YELLOW}npm not found. Install nodejs first: pkg install nodejs${RESET}"
-    return 1
-  fi
-}
+def launch_gemini():
+    print(f"\n{GREEN}Launching gemini-cli...{RESET}\n")
+    try:
+        subprocess.run(["gemini-cli"])
+    except KeyboardInterrupt:
+        print(f"\n{YELLOW}Closed.{RESET}")
 
-ai_selector() {
-  echo -e "${BOLD}${CYAN}"
-  echo "╔══════════════════════════════════════════════╗"
-  echo "║     deckai — Choose AI                        ║"
-  echo "╚══════════════════════════════════════════════╝${RESET}"
-  echo -e "\nBoth AI CLIs are installed. Pick one to launch:\n"
-  
-  local opts=()
-  local saved
-  saved=$(get_ai_selection)
-  
-  if has_opencode;  then opts+=("opencode");  fi
-  if has_gemini_cli; then opts+=("gemini-cli"); fi
-  
-  for i in "${!opts[@]}"; do
-    local marker=""
-    [ "${opts[$i]}" = "$saved" ] && marker=" (default)"
-    echo -e "  ${CYAN}$((i+1))${RESET}) ${opts[$i]}${marker}"
-  done
-  echo -e "  ${CYAN}0${RESET}) Cancel"
-  
-  while true; do
-    read -r -p $'\n\e[1mLaunch:\e[0m ' choice
-    case "$choice" in
-      0) exit 0 ;;
-      *)
-        if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#opts[@]} )); then
-          local pick="${opts[$((choice-1))]}"
-          save_ai_selection "$pick"
-          echo "$pick"
-          return 0
-        fi
-        echo -e "${YELLOW}Invalid choice.${RESET}"
-        ;;
-    esac
-  done
-}
+def interactive_menu():
+    print(f"\n{BOLD}deckai — AI Launcher{RESET}\n")
+    
+    opencode_ok = check_opencode()
+    gemini_ok = check_gemini()
+    
+    print(f"{BOLD}Available AI Tools:{RESET}")
+    
+    choices = []
+    
+    if opencode_ok:
+        print(f"  {GREEN}[O]{RESET} opencode")
+        choices.append(("o", launch_opencode))
+    
+    if gemini_ok:
+        print(f"  {GREEN}[G]{RESET} gemini-cli")
+        choices.append(("g", launch_gemini))
+    
+    print(f"  {YELLOW}[I]{RESET} Install opencode")
+    print(f"  {YELLOW}[M]{RESET} Install gemini-cli")
+    print(f"  {RED}[Q]{RESET} Quit")
+    print()
+    
+    while True:
+        try:
+            choice = input(f"{BOLD}Select [{GREEN}O{GREEN}/{GREEN}G{YELLOW}/{YELLOW}I{YELLOW}/{YELLOW}M{RED}/{RED}Q{BOLD}]: {RESET}").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print(f"\n\n{YELLOW}Goodbye!{RESET}\n")
+            sys.exit(0)
+        
+        if choice == "o" and opencode_ok:
+            launch_opencode()
+            break
+        elif choice == "g" and gemini_ok:
+            launch_gemini()
+            break
+        elif choice == "i":
+            if install_opencode():
+                opencode_ok = True
+                choices.append(("o", launch_opencode))
+        elif choice == "m":
+            if install_gemini():
+                gemini_ok = True
+                choices.append(("g", launch_gemini))
+        elif choice == "q":
+            print(f"\n{YELLOW}Goodbye!{RESET}\n")
+            break
+        else:
+            print(f"{RED}Invalid choice: {choice}{RESET}")
 
-# ── Main ──────────────────────────────────────────────────
-
-if ! has_opencode && ! has_gemini_cli; then
-  echo -e "${BOLD}${CYAN}"
-  echo "╔══════════════════════════════════════════════╗"
-  echo "║     deckai — AI Setup                         ║"
-  echo "╚══════════════════════════════════════════════╝${RESET}"
-  echo -e "\nNo AI CLI found. Choose what to install:\n"
-  echo -e "  ${CYAN}o${RESET}) opencode        — Open-source AI CLI"
-  echo -e "  ${CYAN}g${RESET}) gemini-cli      — Google Gemini CLI"
-  echo -e "  ${CYAN}b${RESET}) Both             — Install both"
-  echo -e "  ${CYAN}c${RESET}) Cancel"
-  
-  while true; do
-    read -r -p $'\n\e[1mInstall:\e[0m ' choice
-    case "$choice" in
-      o|O) echo "opencode";    break ;;
-      g|G) echo "gemini-cli";  break ;;
-      b|B) echo "both";        break ;;
-      c|C) echo "none";        break ;;
-      *) echo -e "${YELLOW}Invalid choice.${RESET}" ;;
-    esac
-  done
-fi
-
-choice=$(install_menu)
-case "$choice" in
-  opencode)
-    install_opencode
-    has_opencode  || { echo -e "${RED}opencode installation failed.${RESET}"; exit 1; }
-    save_ai_selection "opencode"
-    exec opencode "$@"
-    ;;
-  gemini-cli)
-    install_gemini_cli
-    has_gemini_cli || { echo -e "${RED}gemini-cli installation failed.${RESET}"; exit 1; }
-    save_ai_selection "gemini-cli"
-    exec gemini "$@" 2>/dev/null || exec gemini-cli "$@"
-    ;;
-  both)
-    install_opencode
-    install_gemini_cli
-    ;;
-  none|*)
-    echo -e "${YELLOW}Cancelled.${RESET}"
-    exit 0
-    ;;
-esac
-
-# Both installed — let user pick
-if has_opencode && has_gemini_cli; then
-  pick=$(ai_selector)
-  case "$pick" in
-    opencode)  exec opencode "$@" ;;
-    gemini-cli) exec gemini "$@" 2>/dev/null || exec gemini-cli "$@" ;;
-    *) exit 0 ;;
-  esac
-fi
-
-# Only one installed — boot it directly
-if has_opencode; then
-  exec opencode "$@"
-elif has_gemini_cli; then
-  exec gemini "$@" 2>/dev/null || exec gemini-cli "$@"
-fi
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "opencode" and check_opencode():
+            launch_opencode()
+        elif sys.argv[1] == "gemini" and check_gemini():
+            launch_gemini()
+        else:
+            print(f"{RED}Usage: deckai [opencode|gemini]{RESET}")
+            print(f"Or run without arguments for interactive menu.")
+    else:
+        interactive_menu()
