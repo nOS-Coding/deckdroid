@@ -1,0 +1,113 @@
+/* DeckDroid Custom Styles with Dark Mode */
+
+/* Light mode (default) */
+:root {
+  --bg-color: #ffffff;
+  --text-color: #24292e;
+  --link-color: #0366d6;
+  --border-color: #e1e4e8;
+  --code-bg: #f6f8fa;
+  --table-stripe: #f6f8fa;
+  --header-bg: #24292e;
+  --header-text: #ffffff;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #0d1117;
+    --text-color: #c9d1d9;
+    --link-color: #58a6ff;
+    --border-color: #30363d;
+    --code-bg: #161b22;
+    --table-stripe: #161b22;
+    --header-bg: #161b22;
+    --header-text: #c9d1d9;
+  }
+}
+
+/* Base styles */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Header */
+.page-header {
+  background-color: var(--header-bg);
+  color: var(--header-text);
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+/* Links */
+a {
+  color: var(--link-color);
+}
+
+/* Code blocks */
+pre, code {
+  background-color: var(--code-bg);
+  border: 1px solid var(--border-color);
+}
+
+/* Tables */
+table {
+  border: 1px solid var(--border-color);
+}
+
+table th {
+  background-color: var(--code-bg);
+  border-bottom: 2px solid var(--border-color);
+}
+
+table tr:nth-child(2n) {
+  background-color: var(--table-stripe);
+}
+
+/* Horizontal rule */
+hr {
+  border-color: var(--border-color);
+}
+
+/* Blockquotes */
+blockquote {
+  border-left: 4px solid var(--link-color);
+  color: var(--text-color);
+  opacity: 0.8;
+}
+
+/* Buttons (if any) */
+.btn {
+  background-color: var(--code-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+.btn:hover {
+  background-color: var(--border-color);
+}
+
+/* Markdown body */
+.markdown-body {
+  color: var(--text-color);
+}
+
+.markdown-body h1, 
+.markdown-body h2, 
+.markdown-body h3, 
+.markdown-body h4, 
+.markdown-body h5, 
+.markdown-body h6 {
+  color: var(--text-color);
+  border-bottom-color: var(--border-color);
+}
+
+/* ASCII art */
+pre:has(code.language-plaintext) {
+  background-color: var(--code-bg);
+  border: 1px solid var(--border-color);
+  padding: 1rem;
+  overflow-x: auto;
+}

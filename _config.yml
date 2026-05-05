@@ -1,0 +1,22 @@
+# DeckDroid Jekyll Configuration
+title: "DeckDroid"
+description: "Android Cyberdeck enthusiasts, this one is for you. A Termux wrapper specialized for cyberdecks, right out of the box!"
+theme: jekyll-theme-slate
+url: "https://nos-coding.github.io"
+baseurl: "/deckdroid"
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+
+# Dark mode support
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: "default"
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag

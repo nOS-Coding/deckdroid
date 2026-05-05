@@ -95,7 +95,7 @@ tetris
 | `ddeckprof` | Profile manager (set/unset/list profiles) |
 | `deckdroid-doctor` | System health audit and repair |
 | `deckdroid-sync` | Git-backed multi-device config sync |
-| `uninstall.sh` | Uninstall DeckDroid completely |
+| `deckremove` | Uninstall DeckDroid completely (with y/n confirmation) |
 | `deckdroid-web` | Local web dashboard (localhost:8080) |
 | `deckdroid-plugin` | Community plugin registry manager |
 | `deckdroid-vault` | GPG encryption for sensitive config |
@@ -112,10 +112,10 @@ deckdroid-doctor
 deckdroid-web
 
 # Uninstall from inside DeckDroid
-bash ~/.deckdroid/tools/uninstall.sh
+deckremove
 
 # Uninstall from pure Termux (without DeckDroid loaded)
-bash -c 'curl -sL https://raw.githubusercontent.com/nOS-Coding/deckdroid/main/uninstall.sh | bash'
+bash -c 'curl -sL https://raw.githubusercontent.com/nOS-Coding/deckdroid/main/deckremove | bash'
 ```
 
 ---
