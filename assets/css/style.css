@@ -10,7 +10,6 @@
   --table-stripe: #f6f8fa;
   --header-bg: #24292e;
   --header-text: #ffffff;
-  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 }
 
 /* Dark mode */
@@ -24,86 +23,101 @@
     --table-stripe: #161b22;
     --header-bg: #161b22;
     --header-text: #c9d1d9;
-    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   }
 }
 
-/* Base styles */
+/* Override Jekyll theme defaults */
 body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif !important;
   background-color: var(--bg-color) !important;
   color: var(--text-color) !important;
-  font-family: var(--font-family) !important;
-  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Ensure all text elements inherit properly */
+* {
+  font-family: inherit;
 }
 
 /* Header */
 .page-header {
-  background-color: var(--header-bg);
-  color: var(--header-text);
-  padding: 2rem 1rem;
-  text-align: center;
+  background-color: var(--header-bg) !important;
+  color: var(--header-text) !important;
+}
+
+.page-header .project-name,
+.page-header .project-tagline {
+  color: var(--header-text) !important;
 }
 
 /* Links */
 a {
-  color: var(--link-color);
+  color: var(--link-color) !important;
 }
 
-/* Code blocks */
-pre, code {
-  background-color: var(--code-bg);
+/* Code blocks - use monospace font */
+code, pre, .highlight {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace !important;
+  background-color: var(--code-bg) !important;
   border: 1px solid var(--border-color);
+}
+
+pre code {
+  border: none;
+  background-color: transparent !important;
 }
 
 /* Tables */
 table {
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-color) !important;
 }
 
 table th {
-  background-color: var(--code-bg);
-  border-bottom: 2px solid var(--border-color);
+  background-color: var(--code-bg) !important;
+  border-bottom: 2px solid var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+
+table td {
+  border: 1px solid var(--border-color) !important;
 }
 
 table tr:nth-child(2n) {
-  background-color: var(--table-stripe);
+  background-color: var(--table-stripe) !important;
+}
+
+table tr:nth-child(odd) {
+  background-color: var(--bg-color) !important;
 }
 
 /* Horizontal rule */
 hr {
-  border-color: var(--border-color);
+  border-color: var(--border-color) !important;
+  background-color: var(--border-color) !important;
 }
 
 /* Blockquotes */
 blockquote {
-  border-left: 4px solid var(--link-color);
-  color: var(--text-color);
+  border-left: 4px solid var(--link-color) !important;
+  color: var(--text-color) !important;
   opacity: 0.8;
 }
 
-/* Buttons (if any) */
+/* Buttons */
 .btn {
-  background-color: var(--code-bg);
-  border: 1px solid var(--border-color);
-  color: var(--text-color);
+  background-color: var(--code-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-color) !important;
 }
 
 .btn:hover {
-  background-color: var(--border-color);
+  background-color: var(--border-color) !important;
 }
 
-/* Markdown body */
+/* Markdown body overrides */
 .markdown-body {
-  color: var(--text-color);
-  font-family: var(--font-family) !important;
-}
-
-.markdown-body code {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
-}
-
-.markdown-body pre {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
+  color: var(--text-color) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif !important;
 }
 
 .markdown-body h1, 
@@ -112,14 +126,39 @@ blockquote {
 .markdown-body h4, 
 .markdown-body h5, 
 .markdown-body h6 {
-  color: var(--text-color);
-  border-bottom-color: var(--border-color);
+  color: var(--text-color) !important;
+  border-bottom-color: var(--border-color) !important;
 }
 
-/* ASCII art */
-pre:has(code.language-plaintext) {
-  background-color: var(--code-bg);
-  border: 1px solid var(--border-color);
-  padding: 1rem;
+.markdown-body code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
+  background-color: var(--code-bg) !important;
+}
+
+.markdown-body pre {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
+  background-color: var(--code-bg) !important;
+}
+
+.markdown-body a {
+  color: var(--link-color) !important;
+}
+
+/* ASCII art - ensure preformatted text */
+pre {
   overflow-x: auto;
+  padding: 1rem;
+  background-color: var(--code-bg) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+/* Main content area */
+.container-lg {
+  background-color: var(--bg-color) !important;
+}
+
+/* Override any remaining Jekyll theme styles */
+h1, h2, h3, h4, h5, h6,
+p, li, td, th, span, div {
+  color: var(--text-color);
 }
