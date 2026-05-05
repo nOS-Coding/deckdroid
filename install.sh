@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# TermuxDeck OS Installer v1.1.0
-# MIT License | https://github.com/TERMUXDECK_USER/termuxdeck
+# DeckDroid Installer v1.1.0
+# MIT License | https://github.com/nOS-Coding/deckdroid
 set -euo pipefail
 
 # ─── Configuration ────────────────────────────────────────────────────────────
-TERMUXDECK_USER="nOS-Coding"
-TDECK_VERSION="1.1.0"
-TDECK_HOME="$HOME/.termuxdeck"
-TDECK_REPO="https://$TERMUXDECK_USER.github.io/termuxdeck"
+DECKDROID_USER="nOS-Coding"
+DDROID_VERSION="1.1.0"
+DDROID_HOME="$HOME/.deckdroid"
+DDROID_REPO="https://nos-coding.github.io/deckdroid"
 
-GITHUB_RAW="https://raw.githubusercontent.com/$TERMUXDECK_USER/termuxdeck/main"
-LOG_FILE="$TDECK_HOME/logs/install.log"
+GITHUB_RAW="https://raw.githubusercontent.com/$DECKDROID_USER/deckdroid/main"
+LOG_FILE="$DDROID_HOME/logs/install.log"
 
 # ─── Colors ───────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
 
-log()  { echo -e "${GREEN}[tdeck]${RESET} $*"; echo "$(date -u +%FT%TZ) [INFO] $*" >> "$LOG_FILE" 2>/dev/null || true; }
+log()  { echo -e "${GREEN}[droid]${RESET} $*"; echo "$(date -u +%FT%TZ) [INFO] $*" >> "$LOG_FILE" 2>/dev/null || true; }
 warn() { echo -e "${YELLOW}[warn]${RESET}  $*"; echo "$(date -u +%FT%TZ) [WARN] $*" >> "$LOG_FILE" 2>/dev/null || true; }
 err()  { echo -e "${RED}[error]${RESET} $*" >&2; echo "$(date -u +%FT%TZ) [ERROR] $*" >> "$LOG_FILE" 2>/dev/null || true; }
 die()  { err "$*"; exit 1; }
@@ -24,14 +24,14 @@ die()  { err "$*"; exit 1; }
 banner() {
   echo -e "${CYAN}"
   cat <<'EOF'
-   ████████╗██████╗ ███████╗ ██████╗██╗  ██╗:
-      ██╔══╝██╔══██╗██╔════╝██╔════╝██║ ██╔╝:
-      ██║   ██║  ██║█████╗  ██║     █████╔╝:
-      ██║   ██║  ██║██╔══╝  ██║     ██╔═██╗:
-      ██║   ██████╔╝███████╗╚██████╗██║  ██╗:
-      ╚═╝   ╚═════╝  ╚═════╝  ═════╝╚═╝  ╚═╝:
-  TermuxDeck OS v$TDECK_VERSION — Any device. Any arch. One terminal.
+    ██████╗ ███████╗ ██████╗██╗  ██╗██████╗ ██████╗  ██████╗ ██╗██████╗ 
+    ██╔══██╗██╔════╝██╔════╝██║ ██╔╝██╔══██╗██╔══██╗██╔═══██╗██║██╔══██╗
+    ██║  ██║█████╗  ██║     █████╔╝ ██║  ██║██████╔╝██║   ██║██║██║  ██║
+    ██║  ██║██╔══╝  ██║     ██╔═██╗ ██║  ██║██╔══██╗██║   ██║██║██║  ██║
+    ██████╔╝███████╗╚██████╗██║  ██╗██████╔╝██║  ██║╚██████╔╝██║██████╔╝
+    ╚═════╝ ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝╚═════╝ 
 EOF
+  echo -e "  DeckDroid v$DDROID_VERSION — Any device. Any arch. One terminal."
   echo -e "${RESET}"
 }
 
@@ -44,8 +44,6 @@ check_termux() {
 }
 
 # ─── Fetch and Deploy ─────────────────────────────────────────────────────────
-# Downloads a file from the repository and places it in the target location.
-# Idempotent: skips if file already exists unless --force is used.
 fetch_and_deploy() {
   local source_path="$1"
   local target_path="$2"
@@ -58,9 +56,9 @@ fetch_and_deploy() {
 
   log "  - Deploying $source_path ..."
   mkdir -p "$(dirname "$target_path")"
-  
+
   if ! curl -sSL "$GITHUB_RAW/$source_path" -o "$target_path"; then
-    warn "  ! Failed to download $source_path. Check your internet or TERMUXDECK_USER."
+    warn "  ! Failed to download $source_path. Check internet or repo."
     return 1
   fi
 
@@ -73,16 +71,18 @@ fetch_and_deploy() {
 bootstrap_dirs() {
   log "Bootstrapping directories..."
   local dirs=(
-    "$TDECK_HOME/logs"
-    "$TDECK_HOME/tools"
-    "$TDECK_HOME/profiles"
-    "$TDECK_HOME/zshrc.d"
-    "$TDECK_HOME/notes/.trash"
+    "$DDROID_HOME/logs"
+    "$DDROID_HOME/tools"
+    "$DDROID_HOME/profiles"
+    "$DDROID_HOME/zshrc.d"
+    "$DDROID_HOME/notes/.trash"
+    "$DDROID_HOME/themes"
+    "$DDROID_HOME/keys"
   )
   for d in "${dirs[@]}"; do
     mkdir -p "$d"
   done
-  log "TermuxDeck directory structure initialized at $TDECK_HOME"
+  log "DeckDroid directory structure initialized at $DDROID_HOME"
 }
 
 # ─── Package Installation ─────────────────────────────────────────────────────
@@ -94,9 +94,9 @@ install_base_packages() {
   log "Installing core dependencies: ${pkgs[*]}"
   for p in "${pkgs[@]}"; do
     if command -v "$p" &>/dev/null; then
-       log "  ✓ $p already installed"
+      log "  ✓ $p already installed"
     else
-       pkg install -y "$p" || warn "Failed to install $p"
+      pkg install -y "$p" || warn "Failed to install $p"
     fi
   done
 }
@@ -114,29 +114,32 @@ deploy_tools() {
     "deckhelp" "deckmenu" "decksetup" "deckai"
   )
   local repo_tools=(
-    "tdeckconf" "tdeckprof" "termuxdeck-doctor" "termuxdeck-sync"
-    "termuxdeck-web" "termuxdeck-plugin" "termuxdeck-vault"
+    "ddeckconf" "tdeckprof" "deckdroid-doctor" "deckdroid-sync"
+    "deckdroid-web" "deckdroid-plugin" "deckdroid-vault"
   )
   local configs=(
     "starship.toml" "fastfetch.jsonc" "ascii-logo.txt"
   )
+
   log "Deploying deck tools..."
   for tool in "${deck_tools[@]}"; do
-    fetch_and_deploy "$tool" "$TDECK_HOME/tools/$tool" true
+    fetch_and_deploy "$tool" "$DDROID_HOME/tools/$tool" true
   done
+
   log "Deploying repo tools..."
   for tool in "${repo_tools[@]}"; do
-    fetch_and_deploy "$tool" "$TDECK_HOME/tools/$tool" true
+    fetch_and_deploy "$tool" "$DDROID_HOME/tools/$tool" true
   done
+
   log "Deploying config files..."
   for cfg in "${configs[@]}"; do
-    fetch_and_deploy "$cfg" "$TDECK_HOME/$cfg"
+    fetch_and_deploy "$cfg" "$DDROID_HOME/$cfg"
   done
+
   log "Deploying profile themes..."
-  mkdir -p "$TDECK_HOME/themes"
   for theme in hacker developer writer crypto radio hamradio iot base; do
-    fetch_and_deploy "${theme}.toml" "$TDECK_HOME/themes/${theme}.toml"
-    fetch_and_deploy "${theme}.quotes" "$TDECK_HOME/themes/${theme}.quotes"
+    fetch_and_deploy "themes/${theme}.toml"   "$DDROID_HOME/themes/${theme}.toml"
+    fetch_and_deploy "themes/${theme}.quotes" "$DDROID_HOME/themes/${theme}.quotes"
   done
 }
 
@@ -147,27 +150,27 @@ deploy_profiles() {
     "crypto.sh" "radio.sh" "hamradio.sh" "iot.sh"
   )
   for p in "${profiles[@]}"; do
-    fetch_and_deploy "$p" "$TDECK_HOME/profiles/$p" true
+    fetch_and_deploy "profiles/$p" "$DDROID_HOME/profiles/$p" true
   done
 }
 
 deploy_configs() {
   log "Deploying configurations..."
-  fetch_and_deploy "starship.toml" "$TDECK_HOME/starship.toml"
-  fetch_and_deploy "fastfetch.jsonc" "$TDECK_HOME/fastfetch.jsonc"
-  fetch_and_deploy "ascii-logo.txt" "$TDECK_HOME/ascii-logo.txt"
-  fetch_and_deploy "boot.sh" "$TDECK_HOME/boot.sh" true
-  fetch_and_deploy "quotes.txt" "$TDECK_HOME/quotes.txt"
-  fetch_and_deploy ".zshrc" "$HOME/.zshrc"
+  fetch_and_deploy "configs/starship.toml"    "$DDROID_HOME/starship.toml"
+  fetch_and_deploy "configs/fastfetch.jsonc"  "$DDROID_HOME/fastfetch.jsonc"
+  fetch_and_deploy "ascii-logo.txt"           "$DDROID_HOME/ascii-logo.txt"
+  fetch_and_deploy "boot.sh"                  "$DDROID_HOME/boot.sh" true
+  fetch_and_deploy "quotes.txt"               "$DDROID_HOME/quotes.txt"
+  fetch_and_deploy ".zshrc"                   "$HOME/.zshrc"
 
   # Initialize config.json if not present
-  local cfg="$TDECK_HOME/config.json"
+  local cfg="$DDROID_HOME/config.json"
   if [ ! -f "$cfg" ]; then
     log "  - Initializing default config.json"
     cat > "$cfg" <<EOF
 {
-  "version": "$TDECK_VERSION",
-  "hostname": "tdeck-$(printf "%04x" $RANDOM)",
+  "version": "$DDROID_VERSION",
+  "hostname": "droid-$(printf "%04x" $RANDOM)",
   "user": "${USER:-deck}",
   "profiles": [],
   "timezone": "UTC",
@@ -199,27 +202,26 @@ EOF
 deploy_zshrc() {
   log "Configuring Zsh integration..."
   local target="$HOME/.zshrc"
-  
-  if [ -f "$target" ] && grep -q "TermuxDeck OS" "$target"; then
+
+  if [ -f "$target" ] && grep -q "DeckDroid" "$target"; then
     log "  - Zsh integration already present"
     return
   fi
 
-  # Backup existing .zshrc
   [ -f "$target" ] && cp "$target" "$target.bak"
 
   cat >> "$target" <<EOF
 
-# ─── TermuxDeck OS ───────────────────────────────────────────────────────────
-export TDECK_HOME="$TDECK_HOME"
-export PATH="\$TDECK_HOME/tools:\$PATH"
+# ─── DeckDroid ───────────────────────────────────────────────────────────────
+export DDROID_HOME="$DDROID_HOME"
+export PATH="\$DDROID_HOME/tools:\$PATH"
 
 # Load Starship
-export STARSHIP_CONFIG="\$TDECK_HOME/starship.toml"
+export STARSHIP_CONFIG="\$DDROID_HOME/starship.toml"
 eval "\$(starship init zsh)"
 
 # Boot sequence
-[ -f "\$TDECK_HOME/boot.sh" ] && source "\$TDECK_HOME/boot.sh"
+[ -f "\$DDROID_HOME/boot.sh" ] && source "\$DDROID_HOME/boot.sh"
 # ─────────────────────────────────────────────────────────────────────────────
 EOF
   log "  ✓ .zshrc updated."
@@ -228,9 +230,10 @@ EOF
 symlink_binaries() {
   log "Symlinking tools to prefix/bin..."
   local bin_dir="$PREFIX/bin"
-  for tool in "$TDECK_HOME/tools"/*; do
+  for tool in "$DDROID_HOME/tools"/*; do
     [ -e "$tool" ] || continue
-    local name=$(basename "$tool")
+    local name
+    name=$(basename "$tool")
     if [ ! -e "$bin_dir/$name" ]; then
       ln -sf "$tool" "$bin_dir/$name"
       log "  - Linked $name"
@@ -242,11 +245,11 @@ symlink_binaries() {
 main() {
   banner
   check_termux
-  
+
   bootstrap_dirs
   install_base_packages
   install_python_deps
-  
+
   deploy_tools
   deploy_profiles
   deploy_configs
@@ -254,14 +257,15 @@ main() {
   symlink_binaries
 
   echo ""
-  echo -e "${GREEN}${BOLD}✓ TermuxDeck OS v$TDECK_VERSION installed successfully!${RESET}"
-  echo -e "  Repo: $TDECK_REPO"
+  echo -e "${GREEN}${BOLD}✓ DeckDroid v$DDROID_VERSION installed successfully!${RESET}"
+  echo -e "  Repo : $DDROID_REPO"
+  echo -e "  Docs : https://nos-coding.github.io/deckdroid"
   echo ""
-  echo -e "  Launch 'zsh' to enter the deck."
+  echo -e "  Run ${CYAN}decksetup${RESET} to configure your cyberdeck."
+  echo -e "  Then launch ${CYAN}zsh${RESET} to enter the deck."
   echo ""
 }
 
-# Force install flag support
 [ "${1:-}" = "--force" ] && FORCE_INSTALL=true
 
 main

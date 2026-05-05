@@ -5,7 +5,7 @@ set -euo pipefail
 REPO_DIR="apt-repo"
 DIST_DIR="dist"
 COMPONENT="main"
-CODENAME="termuxdeck"
+CODENAME="deckdroid"
 
 ARCH_MAP=(aarch64 arm x86_64 i686)
 
@@ -37,14 +37,14 @@ done
 
 # Generate Release file
 cat > "$REPO_DIR/dists/$CODENAME/Release" <<EOF
-Origin: TermuxDeck OS
-Label: TermuxDeck
+Origin: DeckDroid
+Label: DeckDroid
 Suite: $CODENAME
 Codename: $CODENAME
-Version: 1.0.0
+Version: 1.1.0
 Architectures: ${ARCH_MAP[*]}
 Components: $COMPONENT
-Description: TermuxDeck OS apt repository
+Description: DeckDroid apt repository
 Date: $(date -Ru)
 EOF
 
@@ -67,6 +67,6 @@ else
 fi
 
 # Export GPG public key
-gpg --export --armor > "$REPO_DIR/termuxdeck.gpg.key" 2>/dev/null || true
+gpg --export --armor > "$REPO_DIR/deckdroid.gpg.key" 2>/dev/null || true
 
 echo "✓ apt repository built at $REPO_DIR/"

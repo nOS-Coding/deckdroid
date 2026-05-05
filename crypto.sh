@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TermuxDeck OS — Crypto & Privacy Profile
+# DeckDroid — Crypto & Privacy Profile
 set -euo pipefail
 
 CRYPTO_PKGS=(gnupg age pass openssl tor)
@@ -9,24 +9,24 @@ for p in "${CRYPTO_PKGS[@]}"; do
   pkg install -y "$p" 2>/dev/null && echo "  ✓ $p" || echo "  ✗ $p (unavailable)"
 done
 
-# Configure pass to use ~/.termuxdeck/passwords
-mkdir -p "$HOME/.termuxdeck/passwords"
-export PASSWORD_STORE_DIR="$HOME/.termuxdeck/passwords"
+# Configure pass to use ~/.deckdroid/passwords
+mkdir -p "$HOME/.deckdroid/passwords"
+export PASSWORD_STORE_DIR="$HOME/.deckdroid/passwords"
 
 # Add helper tool
-cat > "$HOME/.termuxdeck/tools/deckcrypt" <<'EOF'
+cat > "$HOME/.deckdroid/tools/deckcrypt" <<'EOF'
 #!/usr/bin/env bash
 # deckcrypt — Privacy helpers
 case "${1:-}" in
   gen)
-    age-keygen -o "$HOME/.termuxdeck/keys/age.key"
-    echo "Generated age key: ~/.termuxdeck/keys/age.key"
+    age-keygen -o "$HOME/.deckdroid/keys/age.key"
+    echo "Generated age key: ~/.deckdroid/keys/age.key"
     ;;
   *)
     echo "Usage: deckcrypt <gen>"
     ;;
 esac
 EOF
-chmod +x "$HOME/.termuxdeck/tools/deckcrypt"
+chmod +x "$HOME/.deckdroid/tools/deckcrypt"
 
 echo "✓ Crypto Profile installed."

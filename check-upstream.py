@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check-upstream.py — Check that all TermuxDeck dependencies are still available in Termux repos."""
+"""check-upstream.py — Check that all DeckDroid dependencies are still available in Termux repos."""
 import urllib.request, json, sys
 
 TERMUX_PACKAGES_API = "https://api.github.com/repos/termux/termux-packages/git/trees/master?recursive=1"
@@ -11,7 +11,7 @@ REQUIRED = [
 
 print("Checking Termux package availability...")
 try:
-    req = urllib.request.Request(TERMUX_PACKAGES_API, headers={"User-Agent": "termuxdeck-ci"})
+    req = urllib.request.Request(TERMUX_PACKAGES_API, headers={"User-Agent": "deckdroid-ci"})
     with urllib.request.urlopen(req, timeout=15) as resp:
         data = json.loads(resp.read())
     tree_paths = {item["path"] for item in data.get("tree", [])}

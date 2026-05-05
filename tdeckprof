@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-TermuxDeck OS — Profile Manager (tdeckprof)
-Manages and activates TermuxDeck profiles.
+DeckDroid — Profile Manager (tdeckprof)
+Manages DeckDroid profiles.
 """
 import os, sys, subprocess, json, pathlib
 
-TDECK_HOME = pathlib.Path.home() / ".termuxdeck"
-CFG = TDECK_HOME / "config.json"
-PROFILES_DIR = TDECK / "profiles"
+DDROID_HOME = pathlib.Path.home() / ".deckdroid"
+CFG = DDROID_HOME / "config.json"
+PROFILES_DIR = DDROID_HOME / "profiles"
 
 PROFILES = {
     "hacker": {
@@ -31,7 +31,7 @@ PROFILES = {
         "desc": "SDR tools (RTL-SDR, radio decode)",
     },
     "hamradio": {
-        "pkgs": ["gnupg"],  # hamlib may not be available
+        "pkgs": ["hamlib"],  # hamlib may not be available
         "desc": "Amateur radio tools",
     },
     "iot": {
@@ -74,7 +74,7 @@ def install_pkg(pkg):
 def cmd_list(args):
     """List available profiles."""
     active = get_active()
-    print("\n\033[1mTermuxDeck OS — Available Profiles\033[0m\n")
+    print("\n\033[1mDeckDroid — Available Profiles\033[0m\n")
     for name, info in PROFILES.items():
         status = "\033[0;32m[active]\033[0m" if name in active else "\033[0;90m[-----]\033[0m"
         print(f"  {name:<12} {status}  {info['desc']}")
@@ -148,14 +148,14 @@ COMMANDS = {
 }
 
 if __name__ == "__main__":
-    if not TDECK_HOME.exists():
-        print("\033[0;31mError: TermuxDeck OS not installed.\033[0m")
-        print("Run: curl -sL https://.../install.sh | bash")
+    if not DDROID_HOME.exists():
+        print("\033[0;31mError: DeckDroid not installed.\033[0m")
+        print("Run: curl -sL https://nos-coding.github.io/deckdroid/install.sh | bash")
         sys.exit(1)
 
     args = sys.argv[1:]
     if not args or args[0] not in COMMANDS:
-        print("\033[1mTermuxDeck Profile Manager\033[0m")
+        print("\033[1mDeckDroid Profile Manager\033[0m")
         print(f"Usage: tdeckprof <command> [args]")
         print("\nCommands:")
         print("  list         Show available profiles")

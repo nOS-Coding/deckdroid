@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TermuxDeck OS — Developer Profile installer
+# DeckDroid — Developer Profile installer
 set -euo pipefail
 DEV_PKGS=(git python nodejs openssh nano)
 echo "Installing Developer Profile..."

@@ -4,50 +4,50 @@
 set -euo pipefail
 
 ARCH="${1:-aarch64}"
-VERSION=$(cat VERSION 2>/dev/null || echo "1.0.0")
-PKG_NAME="termuxdeck"
+VERSION=$(cat VERSION 2>/dev/null || echo "1.1.0")
+PKG_NAME="deckdroid"
 PKG_DIR="dist/${PKG_NAME}_${VERSION}_${ARCH}"
 DATA_DIR="$PKG_DIR/data"
 DEBIAN_DIR="$PKG_DIR/DEBIAN"
 
-echo "Building termuxdeck v$VERSION for $ARCH..."
+echo "Building deckdroid v$VERSION for $ARCH..."
 
 mkdir -p "$DEBIAN_DIR"
-HOME_TDECK="$DATA_DIR/data/data/com.termux/files/home/.termuxdeck"
-mkdir -p "$HOME_TDECK/tools"
-mkdir -p "$HOME_TDECK/profiles"
+HOME_DDROID="$DATA_DIR/data/data/com.termux/files/home/.deckdroid"
+mkdir -p "$HOME_DDROID/tools"
+mkdir -p "$HOME_DDROID/profiles"
 mkdir -p "$DATA_DIR/data/data/com.termux/files/home/.config/fastfetch"
 
 # Tools
-TOOLS=(deckbat deckclock deckid decklocate decknote deckping decksniff deckwifi gemini tdeckconf termuxdeck-doctor termuxdeck-sync termuxdeck-web termuxdeck-plugin termuxdeck-vault)
+TOOLS=(deckbat deckclock deckid decklocate decknote deckping decksniff deckwifi gemini ddeckconf deckdroid-doctor deckdroid-sync deckdroid-web deckdroid-plugin deckdroid-vault)
 for t in "${TOOLS[@]}"; do
-  [ -f "$t" ] && cp "$t" "$HOME_TDECK/tools/"
+  [ -f "$t" ] && cp "$t" "$HOME_DDROID/tools/"
 done
 
 # Profiles
 PROFILES=(crypto.sh developer.sh hacker.sh hamradio.sh iot.sh radio.sh writer.sh)
 for p in "${PROFILES[@]}"; do
-  [ -f "$p" ] && cp "$p" "$HOME_TDECK/profiles/"
+  [ -f "$p" ] && cp "$p" "$HOME_DDROID/profiles/"
 done
 
 # Configs & Core
 cp .zshrc "$DATA_DIR/data/data/com.termux/files/home/"
 cp starship.toml "$DATA_DIR/data/data/com.termux/files/home/"
 cp fastfetch.jsonc "$DATA_DIR/data/data/com.termux/files/home/.config/fastfetch/"
-cp boot.sh "$HOME_TDECK/"
-cp quotes.txt "$HOME_TDECK/"
+cp boot.sh "$HOME_DDROID/"
+cp quotes.txt "$HOME_DDROID/"
 
 # Write control file
 cat > "$DEBIAN_DIR/control" <<EOF
 Package: $PKG_NAME
 Version: $VERSION
 Architecture: $ARCH
-Maintainer: nOS-Coding <maintainer@termuxdeck.dev>
+Maintainer: nOS-Coding <maintainer@deckdroid.dev>
 Depends: zsh, starship, fastfetch, nano, python, nodejs, git, curl
-Description: TermuxDeck OS — Cyberdeck OS layer for Termux
- A complete OS-layer for Termux: shell config, deck tools, boot sequence,
+Description: DeckDroid — Cyberdeck toolkit for Termux
+ A complete toolkit for Termux: shell config, deck tools, boot sequence,
  theming, and profile management. Built for cyberdeck builders worldwide.
-Homepage: https://github.com/nOS-Coding/termuxdeck
+Homepage: https://github.com/nOS-Coding/deckdroid
 EOF
 
 # Write postinst
@@ -56,14 +56,14 @@ cat > "$DEBIAN_DIR/postinst" <<'POSTINST'
 set -euo pipefail
 export PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 # Run the local installer in config-only mode to bootstrap
-bash "$HOME/.termuxdeck/install.sh" --config-only || true
+bash "$HOME/.deckdroid/install.sh" --config-only || true
 POSTINST
 
 # Write prerm
 cat > "$DEBIAN_DIR/prerm" <<'PRERM'
 #!/usr/bin/env bash
-# Remove symlinks only, never touch user data in ~/.termuxdeck/
-TOOLS=(deckbat deckping deckid deckwifi decklocate deckclock decksniff decknote tdeckconf termuxdeck-doctor)
+# Remove symlinks only, never touch user data in ~/.deckdroid/
+TOOLS=(deckbat deckping deckid deckwifi decklocate deckclock decksniff decknote ddeckconf deckdroid-doctor)
 for t in "${TOOLS[@]}"; do
   link="$PREFIX/bin/$t"
   [ -L "$link" ] && rm -f "$link" && echo "Removed symlink: $t"

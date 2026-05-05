@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TermuxDeck OS — Radio & SDR Profile
+# DeckDroid — Radio & SDR Profile
 set -euo pipefail
 
 RADIO_PKGS=(rtl-sdr sox multimon-ng)

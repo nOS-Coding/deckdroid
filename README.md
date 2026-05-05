@@ -1,29 +1,29 @@
-# TermuxDeck OS
+# DeckDroid
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/Platform-Termux-orange.svg)](https://termux.dev/)
 [![Version](https://img.shields.io/badge/Version-1.1.0--stable-green.svg)](#)
 
 ```
-   ████████╗██████╗ ███████╗ ██████╗██╗  ██╗
-      ██╔══╝██╔══██╗██╔════╝██╔════╝██║ ██╔╝
-      ██║   ██║  ██║█████╗  ██║     █████╔╝ 
-      ██║   ██║  ██║██╔══╝  ██║     ██╔═██╗ 
-      ██║   ██████╔╝███████╗╚██████╗██║  ██╗
-      ╚═╝   ╚═════╝ ╚══════╝ ╚═════╝╚═╝  ╚═╝
-   TermuxDeck OS v1.1.0 — Any device. Any arch. One terminal.
+    ██████╗ ███████╗ ██████╗██╗  ██╗██████╗ ██████╗  ██████╗ ██╗██████╗ 
+    ██╔══██╗██╔════╝██╔════╝██║ ██╔╝██╔══██╗██╔══██╗██╔═══██╗██║██╔══██╗
+    ██║  ██║█████╗  ██║     █████╔╝ ██║  ██║██████╔╝██║   ██║██║██║  ██║
+    ██║  ██║██╔══╝  ██║     ██╔═██╗ ██║  ██║██╔══██╗██║   ██║██║██║  ██║
+    ██████╔╝███████╗╚██████╗██║  ██╗██████╔╝██║  ██║╚██████╔╝██║██████╔╝
+    ╚═════╝ ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝╚═════╝
+    DeckDroid v1.1.0 — Any device. Any arch. One terminal.
 ```
 
 > **Any device. Any architecture. One terminal.**
 
-**TermuxDeck OS** is a high-performance, headless OS-layer experience built entirely within the Termux userland. It transforms any Android device into a professional cyberdeck: hacker toolkit, developer workstation, or field terminal — fast and asethatic.
+**DeckDroid** is a high-performance addon with special packages and a new UI built entirely for a cyberdeck. It transforms any Android device running Termux into a professional cyberdeck: hacker toolkit, developer workstation, or field terminal — fast and aesthatic.
 
 ---
 
 ## Quick Install
 
 ```bash
-curl -sL https://nos-coding.github.io/termuxdeck/install.sh | bash
+curl -sL https://nos-coding.github.io/deckdroid/install.sh | bash
 zsh
 ```
 
@@ -58,9 +58,9 @@ This wizard helps you set:
 | `decknote` | Plain-text markdown notes system |
 | `deckbrowse` | Universal terminal browser (w3m/lynx/browsh) |
 | `deckdisk` | Disk management (list, mount, unmount, format) |
-| `decklog` | Log viewer for TermuxDeck logs |
+| `decklog` | Log viewer for DeckDroid logs |
 | `deckclean` | Storage cleanup utility |
-| `deckupdate` | Check & auto-update TermuxDeck OS |
+| `deckupdate` | Check & apply DeckDroid updates |
 | `decktheme` | Theme manager (8 themes + 7 profile themes) |
 | `deckmenu` | Interactive TUI launcher for all tools |
 | `deckhelp` | Help utility with usage examples |
@@ -89,24 +89,24 @@ deckupdate check
 
 | Command | Description |
 |---------|-------------|
-| `tdeckconf` | Config manager (get/set/list/validate) |
+| `ddeckconf` | Config manager (get/set/list/validate) |
 | `tdeckprof` | Profile manager (set/unset/list profiles) |
-| `termuxdeck-doctor` | System health audit and repair |
-| `termuxdeck-sync` | Git-backed multi-device config sync |
-| `termuxdeck-web` | Local web dashboard (localhost:8080) |
-| `termuxdeck-plugin` | Community plugin registry manager |
-| `termuxdeck-vault` | GPG encryption for sensitive config |
+| `deckdroid-doctor` | System health audit and repair |
+| `deckdroid-sync` | Git-backed multi-device config sync |
+| `deckdroid-web` | Local web dashboard (localhost:8080) |
+| `deckdroid-plugin` | Community plugin registry manager |
+| `deckdroid-vault` | GPG encryption for sensitive config |
 
 **Usage examples:**
 ```bash
-tdeckconf set theme.name ghost
-tdeckconf list
-tdeckconf validate
+ddeckconf set theme.name ghost
+ddeckconf list
+ddeckconf validate
 tdeckprof list
 tdeckprof set hacker
 tdeckprof status
-termuxdeck-doctor
-termuxdeck-web
+deckdroid-doctor
+deckdroid-web
 ```
 
 ---
@@ -141,7 +141,7 @@ tdeckprof status            # Show active profiles
 ## Themes
 
 ### Visual Themes (8)
-```
+```bash
 decktheme list
 decktheme set <name>
 ```
@@ -178,18 +178,17 @@ decktheme set ocean
 decktheme set hacker
 ```
 
-Profile themes automatically activate when you set a profile via `tdeckprof set`.
-
 ---
 
 ## Configuration
 
-All settings in `~/.termuxdeck/config.json`:
+All settings stored in `~/.deckdroid/config.json`:
 
 ```bash
-tdeckconf set hostname mydeck
-tdeckconf set theme.name blood
-tdeckconf get version
+ddeckconf set hostname mydroid
+ddeckconf set theme.name blood
+ddeckconf get version
+ddeckconf list
 ```
 
 ---
@@ -206,19 +205,26 @@ Runs on all Termux-supported architectures:
 
 ## Changelog
 
-### v1.1.0 
+### v1.1.0
 **Release Date:** 2026-05-04
 
+#### Rebranded: TermuxDeck OS → DeckDroid
+- All config paths moved from `~/.termuxdeck/` to `~/.deckdroid/`
+- All `termuxdeck-*` repo tools renamed to `deckdroid-*`
+- Install script updated for new repo: `nos-coding.github.io/deckdroid`
+- ASCII logo updated to spell **DECKDROID**
+- Environment variable renamed `TDECK_HOME` → `DDROID_HOME`
+
 #### New Features
-- **New Boot Experience** — Custom ASCII logo + profile-specific quotes (philosophic), one-liner system info
+- **New Boot Experience** — Custom ASCII logo + profile-specific quotes, one-liner system info
 - **Interactive Launcher** — `deckmenu` — TUI menu to browse and launch all tools
 - **Theme System** — 8 visual themes + 7 profile themes with automatic switching
-- **Profile Quotes** — Each profile (hacker, developer, writer, crypto, radio, hamradio, iot, base) has unique philosophic quotes shown at boot
+- **Profile Quotes** — Each profile has unique philosophic quotes shown at boot
 
 #### New Tools
 - `deckhelp` — Unified help system with usage examples for all tools
 - `deckmenu` — Interactive TUI launcher (number/letter selection)
-- `decklog` — Log viewer for TermuxDeck logs
+- `decklog` — Log viewer for DeckDroid logs
 - `deckclean` — Storage cleanup utility
 - `deckupdate` — Check for updates
 - `decktheme` — Theme manager (visual + profile themes)
@@ -228,29 +234,24 @@ Runs on all Termux-supported architectures:
 #### Improvements
 - All deck tools now support `--json` and `--log` flags
 - `deckbrowse` now works without URL input (defaults to Google)
-- `deckai` launcher replaces old gemini wrapper — supports opencode & gemini-cli with interactive install
-- `tdeckconf` updated with full dot-notation support
-- Boot script colored by theme, shows battery status
-- Added battery to one-liner system info
+- `deckai` supports opencode & gemini-cli with interactive install
+- `ddeckconf` updated with full dot-notation support
+- Boot script colored by active theme, shows battery status
 
 #### Bug Fixes
 - Fixed missing `.zshrc` in repo (now deployed on install)
-- Fixed `deckbrowse` not in installer list
+- Fixed `deckbrowse` missing from installer list
 - Fixed repo URL to use GitHub Pages format
-- Fixed `tdeckconf reset` to not call non-existent flag
+- Fixed `ddeckconf reset` referencing non-existent flag
 
 #### Files Added
 - `.zshrc` — Base shell configuration with zinit plugins
-- `themes/*.toml` — 8 profile themes (hacker, developer, writer, crypto, radio, hamradio, iot, base)
-- `themes/*.quotes` — Profile-specific quotes (10 philosophic quotes each)
+- `themes/*.toml` — 8 visual themes + 7 profile themes
+- `themes/*.quotes` — Profile-specific philosophic quotes (10 per profile)
 
 #### First-Run Setup
-- `decksetup` — Interactive first-run wizard that configures:
-  - Hostname, Profile selection, Theme selection
-  - Auto-update toggle (enable/disable)
-  - Additional package installation
-  - Auto-installs profile-specific packages
-- Recommended to run after fresh install: `decksetup`
+- `decksetup` — Interactive first-run wizard:
+  - Hostname, Profile, Theme, Auto-update, Additional packages
 
 #### Auto-Update System
 - `deckupdate auto on` — Enable automatic update checks on shell start
@@ -258,30 +259,14 @@ Runs on all Termux-supported architectures:
 - `deckupdate check` — Manual version check
 - `deckupdate upgrade` — Force upgrade to latest version
 
-#### Repository Tools (v1.1+)
-- `tdeckconf` — Config manager (get/set/list/validate/reset)
-- `tdeckprof` — Profile manager (set/unset/list/install-all)
-- `termuxdeck-doctor` — System health audit with `--fix` option
-- `termuxdeck-sync` — Git-backed multi-device config sync
-- `termuxdeck-web` — Local web dashboard (localhost:8080)
-- `termuxdeck-plugin` — Community plugin registry manager
-- `termuxdeck-vault` — GPG encryption for sensitive config values
-
-#### System Boot (v1.1)
-- Removed fastfetch dependency for faster boot
-- Custom ASCII logo with theme-based coloring
-- One-liner system info: Device · RAM · CPU · Disk · Battery
-- Boot log for session tracking
-
 ---
-
-## Contributing
 
 ## Contributing
 
 - No CLA required
 - MIT Licensed
-- Headless philosophy
+- Headless philosophy is mandatory
 
 ---
 
+*DeckDroid — Any device. Any arch. One terminal.*
