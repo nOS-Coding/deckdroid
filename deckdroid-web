@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""termuxdeck-web — Local web dashboard for TermuxDeck OS"""
+"""deckdroid-web — Local web dashboard for DeckDroid"""
 import http.server
 import socketserver
 import json
 import os
 import pathlib
 import subprocess
+import sys
 
 PORT = 8080
-TDECK_DIR = pathlib.Path.home() / ".termuxdeck"
-CONFIG_FILE = TDECK_DIR / "config.json"
+DDROID = pathlib.Path.home() / ".deckdroid"
+CONFIG_FILE = DDROID / "config.json"
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -19,9 +20,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             
             # Get stats
-            hostname = self.get_config().get("hostname", "TermuxDeck")
-            battery = self.run_tool("deckbat", "--json")
-            wifi = self.run_tool("deckwifi", "--json")
+            hostname = self.get_config().get("hostname", "DeckDroid")
+            battery = self.run_tool("deckbat", "--json", timeout=5)
+            wifi = self.run_tool("deckwifi", "--json", timeout=5)
             
             html = f"""
             <html>
@@ -35,7 +36,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 </style>
             </head>
             <body>
-                <h1>TermuxDeck OS Dashboard — {hostname}</h1>
+                <h1>DeckDroid Dashboard — {hostname}</h1>
                 <div class="card">
                     <h2>Battery Status</h2>
                     <pre>{json.dumps(battery, indent=2)}</pre>
@@ -54,31 +55,48 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(html.encode())
         else:
             self.send_error(404, "Not Found")
-
+    
     def get_config(self):
         try:
             with open(CONFIG_FILE, "r") as f:
                 return json.load(f)
         except:
             return {}
-
-    def run_tool(self, tool, *args):
+    
+    def run_tool(self, tool, *args, timeout=5):
         try:
-            # Try local tools directory first, then system path
-            tool_path = TDECK_DIR / "tools" / tool
+            # Try tools directory first
+            tool_path = DDROID / "tools" / tool
             if tool_path.exists():
-                cmd = [sys.executable, str(tool_path)] if tool_path.suffix == ".py" or open(tool_path, "r").read(2) == "#!" else [str(tool_path)]
+                cmd = [sys.executable, str(tool_path)] if tool_path.suffix == ".py" else [str(tool_path)]
             else:
+                # Try system PATH
                 cmd = [tool]
             
-            result = subprocess.run(cmd + list(args), capture_output=True, text=True, timeout=5)
-            return json.loads(result.stdout)
+            result = subprocess.run(
+                cmd + list(args),
+                capture_output=True, text=True, timeout=timeout
+            )
+            if result.stdout.strip():
+                return json.loads(result.stdout)
+            return {"status": "success"}
         except Exception as e:
             return {"error": f"Could not run {tool}: {str(e)}"}
 
 if __name__ == "__main__":
-    import sys
-    print(f"Starting TermuxDeck Web Dashboard on http://localhost:{PORT}")
+    print(f"Starting DeckDroid Web Dashboard on http://localhost:{PORT}")
+    print(f"Press Ctrl+C to stop.\n")
+    
+    # Check if port is already in use
+    try:
+        test_socket = socketserver.socket(socket.AF_INET, socket.SOCK_STREAM)
+        test_socket.bind(("", PORT))
+        test_socket.close()
+    except Exception:
+        print(f"Port {PORT} is already in use.")
+        print(f"Try: kill $(lsof -t -i:{PORT})")
+        sys.exit(1)
+    
     with socketserver.TCPServer(("", PORT), DashboardHandler) as httpd:
         try:
             httpd.serve_forever()

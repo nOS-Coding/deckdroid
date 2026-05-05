@@ -1,93 +1,109 @@
 #!/usr/bin/env python3
-"""termuxdeck-sync — Git-backed synchronization for TermuxDeck OS"""
-import os
-import sys
-import subprocess
-import pathlib
-import json
+"""deckdroid-sync — Git-backed multi-device config sync for DeckDroid"""
+import sys, json, pathlib, subprocess, os
 
-TDECK_DIR = pathlib.Path.home() / ".termuxdeck"
-CONFIG_FILE = TDECK_DIR / "config.json"
-IGNORE_FILE = TDECK_DIR / ".termuxdeckignore"
+HOME = pathlib.Path.home()
+DDROID = HOME / ".deckdroid"
+CFG = DDROID / "config.json"
 
-def run_git(args, cwd=TDECK_DIR):
-    try:
-        result = subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True)
-        return result
-    except FileNotFoundError:
-        print("Error: git is not installed.")
+GREEN = "\033[0;32m"; YELLOW = "\033[1;33m"; CYAN = "\033[0;36m"; RESET = "\033[0m"; BOLD = "\033[1m"
+RED = "\033[0;31m"
+
+def run_cmd(*args, capture=True):
+    result = subprocess.run(args, capture_output=capture, text=True, timeout=30)
+    if capture:
+        return result.stdout.strip()
+    return result.returncode == 0
+
+def cmd_status(args):
+    """Check sync status."""
+    print(f"\n{BOLD}DeckDroid Sync — Status{RESET}\n")
+    
+    if not (DDROID / ".git").exists():
+        print(f"  {YELLOW}✗ Not initialized{RESET}")
+        print(f"  Run: deckdroid-sync init <repo_url>")
+        return
+    
+    # Check remote
+    remote = run_cmd("git", "-C", str(DDROID), "remote", "-v")
+    print(f"  Remote:  {remote.splitlines()[0] if remote else 'None'}")
+    
+    # Check status
+    status = run_cmd("git", "-C", str(DDROID), "status", "--porcelain")
+    if status:
+        print(f"  {YELLOW}Status: Changes pending{RESET}")
+        print(run_cmd("git", "-C", str(DDROID), "status", "--short"))
+    else:
+        print(f"  {GREEN}✓ Clean{RESET}")
+    
+    # Last sync
+    last_commit = run_cmd("git", "-C", str(DDROID), "log", "-1", "--format=%ar")
+    print(f"  Last:   {last_commit if last_commit else 'Never'}")
+
+def cmd_init(args):
+    """Initialize sync with a git repo."""
+    if not args:
+        print(f"Usage: deckdroid-sync init <git_repo_url>")
         sys.exit(1)
-
-def init_sync(repo_url):
-    if not TDECK_DIR.exists():
-        TDECK_DIR.mkdir(parents=True, exist_ok=True)
     
-    if not (TDECK_DIR / ".git").exists():
-        print(f"Initializing git repo in {TDECK_DIR}...")
-        run_git(["init"])
+    repo_url = args[0]
+    print(f"\n{BOLD}Initializing sync...{RESET}\n")
     
-    # Create default .termuxdeckignore if it doesn't exist
-    if not IGNORE_FILE.exists():
-        with open(IGNORE_FILE, "w") as f:
-            f.writelines([
-                "logs/\n",
-                "ssh/host_key*\n",
-                ".git/\n",
-                "*.log\n"
-            ])
+    if (DDROID / ".git").exists():
+        print(f"  {YELLOW}Already initialized{RESET}")
+        return
     
-    print(f"Adding remote origin {repo_url}...")
-    run_git(["remote", "add", "origin", repo_url])
-    print("Sync initialized. You can now use 'push' or 'pull'.")
+    # Init git repo
+    run_cmd("git", "-C", str(DDROID), "init", capture=False)
+    
+    # Add remote
+    run_cmd("git", "-C", str(DDROID), "remote", "add", "origin", repo_url, capture=False)
+    
+    # Initial commit if needed
+    run_cmd("git", "-C", str(DDROID), "add", ".", capture=False)
+    run_cmd("git", "-C", str(DDROID), "commit", "-m", "Initial DeckDroid config", capture=False)
+    
+    print(f"{GREEN}✓ Sync initialized{RESET}")
+    print(f"  Push: deckdroid-sync push")
 
-def push_sync():
-    print("Syncing local changes to remote...")
-    run_git(["add", "."])
-    msg = f"Sync from {get_hostname()}"
-    run_git(["commit", "-m", msg])
-    res = run_git(["push", "origin", "main"])
-    if res.returncode == 0:
-        print("✓ Push successful.")
-    else:
-        print(f"✗ Push failed: {res.stderr}")
+def cmd_push(args):
+    """Push config to remote."""
+    print(f"\n{BOLD}Pushing config...{RESET}\n")
+    
+    run_cmd("git", "-C", str(DDROID), "add", ".", capture=False)
+    run_cmd("git", "-C", str(DDROID), "commit", "-m", "Update DeckDroid config", capture=False)
+    run_cmd("git", "-C", str(DDROID), "push", "origin", "main", capture=False)
+    
+    print(f"{GREEN}✓ Pushed to remote{RESET}")
 
-def pull_sync():
-    print("Fetching changes from remote...")
-    res = run_git(["pull", "origin", "main"])
-    if res.returncode == 0:
-        print("✓ Pull successful.")
-    else:
-        print(f"✗ Pull failed: {res.stderr}")
+def cmd_pull(args):
+    """Pull config from remote."""
+    print(f"\n{BOLD}Pulling config...{RESET}\n")
+    
+    run_cmd("git", "-C", str(DDROID), "pull", "origin", "main", capture=False)
+    
+    print(f"{GREEN}✓ Pulled from remote{RESET}")
+    print(f"  Restart shell: source ~/.zshrc")
 
-def get_hostname():
-    try:
-        with open(CONFIG_FILE, "r") as f:
-            config = json.load(f)
-            return config.get("hostname", "unknown-device")
-    except Exception:
-        return "unknown-device"
-
-def usage():
-    print("Usage: termuxdeck-sync <command> [args]")
-    print("Commands:")
-    print("  init <repo-url>   Initialize sync with a remote git repo")
-    print("  push              Push local config to remote")
-    print("  pull              Pull remote config to local")
-    sys.exit(1)
+CMDS = {
+    "status": cmd_status,
+    "init": cmd_init,
+    "push": cmd_push,
+    "pull": cmd_pull,
+}
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        usage()
+    args = sys.argv[1:]
+    if not args or args[0] not in CMDS:
+        print(f"{BOLD}deckdroid-sync — Git-backed Config Sync{RESET}")
+        print(f"Usage: deckdroid-sync <command> [args...]\n")
+        print("Commands:")
+        print(f"  {CYAN}status{RESET}    Show sync status")
+        print(f"  {CYAN}init{RESET}   <repo_url>  Initialize sync with git repo")
+        print(f"  {CYAN}push{RESET}    Push config to remote")
+        print(f"  {CYAN}pull{RESET}    Pull config from remote")
+        sys.exit(1)
     
-    cmd = sys.argv[1]
-    if cmd == "init":
-        if len(sys.argv) < 3:
-            print("Error: Missing repo URL.")
-            usage()
-        init_sync(sys.argv[2])
-    elif cmd == "push":
-        push_sync()
-    elif cmd == "pull":
-        pull_sync()
-    else:
-        usage()
+    CMDS[args[0]](args[1:])
+PYEOF'
+chmod +x deckdroid-sync && python3 -m pycompile deckdroid-sync && echo "✓ deckdroid-sync fixed"

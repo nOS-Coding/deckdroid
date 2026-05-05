@@ -50,12 +50,14 @@ print(json.dumps({
 "
 else
   R='\033[0;31m'; Y='\033[0;33m'; G='\033[0;32m'; C='\033[0;36m'; N='\033[0m'; B='\033[1m'
-  if [ "$LEVEL" != "N/A" ] 2>/dev/null; then
-    [ "$LEVEL" -le 15 ] && LC=$R || { [ "$LEVEL" -le 40 ] && LC=$Y || LC=$G; }
-  else LC=$N; fi
-  echo -e "${B}${C}╔══════════════════════════╗${N}"
+  if [ "$LEVEL" != "N/A" ] 2>/dev/null && echo "$LEVEL" | grep -q '^[0-9]\+$'; then
+    if [ "$LEVEL" -le 15 ] 2>/dev/null; then LC=$R; elif [ "$LEVEL" -le 40 ] 2>/dev/null; then LC=$Y; else LC=$G; fi
+  else
+    LC=$N
+  fi
+  echo -e "${B}${C}╔═══════════════════════════════╗${N}"
   echo -e "${B}${C}║      deckbat  v1.1       ║${N}"
-  echo -e "${B}${C}╚══════════════════════════╝${N}"
+  echo -e "${B}${C}╚═══════════════════════════════╝${N}"
   echo -e "  ${B}Level   :${N}  ${LC}${LEVEL}%${N}"
   echo -e "  ${B}Status  :${N}  $STATUS"
   echo -e "  ${B}Health  :${N}  $HEALTH"
@@ -63,7 +65,7 @@ else
   echo -e "  ${B}Voltage :${N}  ${VOLTAGE} V"
   echo -e "  ${B}Plugged :${N}  $PLUGGED"
   echo -e "  ${B}Time    :${N}  $TIMESTAMP"
-  if [ "$ALERT_THRESHOLD" -gt 0 ] 2>/dev/null && [ "$LEVEL" != "N/A" ] && [ "$LEVEL" -le "$ALERT_THRESHOLD" ]; then
+  if [ "$ALERT_THRESHOLD" -gt 0 ] 2>/dev/null && [ "$LEVEL" != "N/A" ] && echo "$LEVEL" | grep -q '^[0-9]\+$' && [ "$LEVEL" -le "$ALERT_THRESHOLD" ] 2>/dev/null; then
     echo -e "\n  ${R}${B}⚠ ALERT: Battery at ${LEVEL}% (threshold: ${ALERT_THRESHOLD}%)${N}"
     command -v termux-notification &>/dev/null && termux-notification --title "deckbat ALERT" --content "Battery at ${LEVEL}%" 2>/dev/null
   fi
