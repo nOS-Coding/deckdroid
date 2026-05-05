@@ -122,7 +122,7 @@ deploy_tools() {
   local repo_tools=(
     "ddeckconf" "ddeckprof" "deckdroid-doctor" "deckdroid-sync"
     "deckdroid-web" "deckdroid-plugin" "deckdroid-vault"
-    "uninstall.sh"
+    "deckremove"
   )
   local configs=(
     "starship.toml" "fastfetch.jsonc" "ascii-logo.txt"
