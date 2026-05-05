@@ -79,18 +79,48 @@ VERSION=$(_ddroid_get version)
 echo -e "${B}${G}DeckDroid ${VERSION}${N} · ${B}${C}$DDROID_HOSTNAME${N} · ${B}$(date '+%a %b %d %H:%M')${N}"
 
 # ─── One-liner System Info ───────────────────────────────────────────────────
-DEVICE=$(getprop ro.product.model 2>/dev/null || hostname)
-RAM_INFO=$(free -h 2>/dev/null | awk '/Mem:/ {print $2 " used / " $3 " free"}' || echo "N/A")
-CPU_LOAD=$(uptime | awk -F'load average:' '{print $2}' | awk '{print $1}' | tr -d ',')
+# Device - try multiple methods
+DEVICE="N/A"
+if command -v getprop &>/dev/null; then
+  DEVICE=$(getprop ro.product.model 2>/dev/null || hostname)
+elif [ -f /system/build.prop ]; then
+  DEVICE=$(grep "ro.product.model" /system/build.prop 2>/dev/null | cut -d= -f2 || hostname)
+else
+  DEVICE=$(hostname 2>/dev/null || echo "Unknown")
+fi
+
+# RAM
+RAM_INFO="N/A"
+if command -v free &>/dev/null; then
+  RAM_INFO=$(free -h 2>/dev/null | awk '/Mem:/ {print $3 "/" $2}' | tr -d ' ' || echo "N/A")
+fi
+
+# CPU Load
+CPU_LOAD="N/A"
+CPU_LOAD=$(uptime 2>/dev/null | awk -F'load average:' '{print $2}' | awk '{print $1}' | tr -d ',' || echo "N/A")
 
 # Storage
-STORAGE=$(df -h "$HOME" 2>/dev/null | awk 'NR==2 {print $2 " total, " $3 " used, " $4 " free"}' || echo "N/A")
+STORAGE="N/A"
+STORAGE=$(df -h "$HOME" 2>/dev/null | awk 'NR==2 {print $3 "/" $2}' | tr -d ' ' || echo "N/A")
 
-# Battery
+# Battery - requires termux-api package
+BAT="N/A"
 if command -v termux-battery-status &>/dev/null; then
-  BAT=$(termux-battery-status 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"{d.get('percentage','N/A')}%\", d.get('status',''))" 2>/dev/null || echo "N/A")
+  BAT=$(termux-battery-status 2>/dev/null | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    pct = d.get('percentage', 'N/A')
+    status = d.get('status', '')
+    print(f\"{pct}% {status}\")
+except Exception as e:
+    pass
+" 2>/dev/null || echo "N/A")
 else
-  BAT="N/A"
+  # Fallback: try reading from /sys/class/power_supply/
+  if [ -f /sys/class/power_supply/battery/capacity ]; then
+    BAT=$(cat /sys/class/power_supply/battery/capacity 2>/dev/null)% || echo "N/A"
+  fi
 fi
 
 echo -e "${DIM}│${N} ${C}$DEVICE${N} · RAM: ${Y}$RAM_INFO${N} · CPU: ${Y}$CPU_LOAD${N} · Disk: ${Y}$STORAGE${N} · ⚡ ${G}$BAT${N}"

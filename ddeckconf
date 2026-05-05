@@ -84,14 +84,15 @@ def cmd_reset(args):
     os.system(f"bash {pathlib.Path.home()}/.deckdroid/install.sh --config-only")
     print("Reset complete.")
 
-CMDS = {"get": cmd_get, "set": cmd_set, "list": cmd_list, "validate": cmd_validate, "reset": cmd_reset}
+COMMANDS = {"get": cmd_get, "set": cmd_set, "list": cmd_list, "validate": cmd_validate, "reset": cmd_reset}
 
 if __name__ == "__main__":
     args = sys.argv[1:]
-    if not args or args[0] not in CMDS:
-        print("Usage: ddeckconf <get|set|list|validate|reset> [args...]")
-        print("Commands:")
-        for c in CMDS:
+    if not args or args[0] not in COMMANDS:
+        print("\033[1mDeckDroid Config Manager\033[0m")
+        print(f"Usage: ddeckconf <command> [args]")
+        print("\nCommands:")
+        for c in COMMANDS:
             print(f"  {c}")
         sys.exit(1)
-    CMDS[args[0]](args[1:])
+    COMMANDS[args[0]](args[1:])

@@ -99,6 +99,12 @@ install_base_packages() {
       pkg install -y "$p" || warn "Failed to install $p"
     fi
   done
+  
+  # Verify termux-api is working (needed for battery status)
+  if ! command -v termux-battery-status &>/dev/null; then
+    warn "termux-api not found. Battery status will not work."
+    warn "Install manually: pkg install termux-api"
+  fi
 }
 
 install_python_deps() {
