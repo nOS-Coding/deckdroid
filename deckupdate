@@ -33,8 +33,9 @@ def get_current_version():
     return cfg.get("version", "0.0.0")
 
 def get_latest_version():
-    """Get latest version using curl"""
+    """Get latest version using curl - check tags if no release"""
     try:
+        # Try releases first
         result = subprocess.run(
             ["curl", "-sL", "--max-time", "10",
              "-H", "User-Agent: DeckDroid",
@@ -42,15 +43,27 @@ def get_latest_version():
              LATEST_URL],
             capture_output=True, text=True, timeout=15
         )
-        if result.returncode != 0 or not result.stdout:
-            return None
+        if result.returncode == 0 and result.stdout:
+            data = json.loads(result.stdout)
+            tag = data.get("tag_name", "")
+            # Only use if it's a proper release (not draft/prerelease)
+            if tag and not data.get("draft", False) and not data.get("prerelease", False):
+                return tag.lstrip("v")
         
-        data = json.loads(result.stdout)
-        tag = data.get("tag_name", "")
-        # Extract version from tag (v1.1.0 -> 1.1.0)
-        if tag.startswith("v"):
-            return tag[1:]
-        return tag or None
+        # Fallback: get latest tag
+        tags_url = "https://api.github.com/repos/nOS-Coding/deckdroid/tags"
+        result = subprocess.run(
+            ["curl", "-sL", "--max-time", "10",
+             "-H", "User-Agent: DeckDroid",
+             tags_url],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.returncode == 0 and result.stdout:
+            tags = json.loads(result.stdout)
+            if tags:
+                return tags[0].get("name", "v0.0.0").lstrip("v")
+        
+        return None
     except Exception as e:
         return None
 
