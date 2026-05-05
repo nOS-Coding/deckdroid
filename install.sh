@@ -40,8 +40,11 @@ EOF
 
 # ─── Pre-flight checks ────────────────────────────────────────────────────────
 check_termux() {
+  # Skip check if not in Termux (for testing/debugging)
   if [ -z "${PREFIX:-}" ] || [ ! -d "$PREFIX" ]; then
-    die "This installer must be run inside Termux."
+    if [ "${ALLOW_OUTSIDE_TERMUX:-false}" != "true" ]; then
+      die "This installer must be run inside Termux. Set ALLOW_OUTSIDE_TERMUX=true to skip."
+    fi
   fi
   log "Termux environment verified."
 }
@@ -60,7 +63,7 @@ fetch_and_deploy() {
   log "  - Deploying $source_path ..."
   mkdir -p "$(dirname "$target_path")"
 
-  if ! curl -sSL --progress-bar "$GITHUB_RAW/$source_path" -o "$target_path" 2>/dev/null; then
+  if ! curl -sSL "$GITHUB_RAW/$source_path" -o "$target_path" 2>/dev/null | grep -v "SHA\|MD5"; then
     warn "  ! Failed to download $source_path. Check internet or repo."
     return 1
   fi
