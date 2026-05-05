@@ -29,8 +29,27 @@ def save_cfg(cfg):
     CFG.write_text(json.dumps(cfg, indent=2))
 
 def get_current_version():
+    """Get current version from config, fallback to repo version"""
     cfg = load_cfg()
-    return cfg.get("version", "0.0.0")
+    version = cfg.get("version", "")
+    
+    # If version is empty or default, try to get from repo
+    if not version or version in ["0.0.0", "0.1.0", "unknown"]:
+        # Try to get version from GitHub repo (default branch)
+        try:
+            result = subprocess.run(
+                ["curl", "-sL", "--max-time", "10",
+                 "-H", "User-Agent: DeckDroid",
+                 "https://raw.githubusercontent.com/nOS-Coding/deckdroid/main/config.template.json"],
+                capture_output=True, text=True, timeout=15
+            )
+            if result.returncode == 0 and result.stdout:
+                data = json.loads(result.stdout)
+                return data.get("version", "0.0.0")
+        except Exception:
+            pass
+    
+    return version or "0.0.0"
 
 def get_latest_version():
     """Get latest version using curl - check tags if no release"""

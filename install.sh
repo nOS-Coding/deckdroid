@@ -109,7 +109,16 @@ install_base_packages() {
 
 install_python_deps() {
   log "Installing Python essentials..."
-  pip install --quiet requests rich psutil python-dotenv 2>/dev/null || warn "Python dependencies failed"
+  # Ensure pip is available
+  if ! command -v pip &>/dev/null && ! command -v pip3 &>/dev/null; then
+    warn "pip not found, skipping Python dependencies"
+    return
+  fi
+  
+  local pip_cmd="pip"
+  command -v pip3 &>/dev/null && pip_cmd="pip3"
+  
+  $pip_cmd install --quiet requests rich psutil python-dotenv 2>/dev/null || warn "Python dependencies failed"
 }
 
 # ─── Component Deployment ─────────────────────────────────────────────────────
