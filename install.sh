@@ -60,7 +60,7 @@ fetch_and_deploy() {
   log "  - Deploying $source_path ..."
   mkdir -p "$(dirname "$target_path")"
 
-  if ! curl -sSL "$GITHUB_RAW/$source_path" -o "$target_path"; then
+  if ! curl -sSL --progress-bar "$GITHUB_RAW/$source_path" -o "$target_path" 2>/dev/null; then
     warn "  ! Failed to download $source_path. Check internet or repo."
     return 1
   fi
