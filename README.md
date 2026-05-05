@@ -95,6 +95,7 @@ tetris
 | `ddeckprof` | Profile manager (set/unset/list profiles) |
 | `deckdroid-doctor` | System health audit and repair |
 | `deckdroid-sync` | Git-backed multi-device config sync |
+| `uninstall.sh` | Uninstall DeckDroid completely |
 | `deckdroid-web` | Local web dashboard (localhost:8080) |
 | `deckdroid-plugin` | Community plugin registry manager |
 | `deckdroid-vault` | GPG encryption for sensitive config |
@@ -109,6 +110,12 @@ ddeckprof set hacker
 ddeckprof status
 deckdroid-doctor
 deckdroid-web
+
+# Uninstall from inside DeckDroid
+bash ~/.deckdroid/tools/uninstall.sh
+
+# Uninstall from pure Termux (without DeckDroid loaded)
+bash -c 'curl -sL https://raw.githubusercontent.com/nOS-Coding/deckdroid/main/uninstall.sh | bash'
 ```
 
 ---
