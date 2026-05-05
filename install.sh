@@ -12,9 +12,12 @@ DDROID_REPO="https://nos-coding.github.io/deckdroid"
 GITHUB_RAW="https://raw.githubusercontent.com/$DECKDROID_USER/deckdroid/main"
 LOG_FILE="$DDROID_HOME/logs/install.log"
 
-# ─── Colors ───────────────────────────────────────────────────────────────────
+# ─── Colors ──────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
+
+# Create log directory first
+mkdir -p "$(dirname "$LOG_FILE")"
 
 log()  { echo -e "${GREEN}[droid]${RESET} $*"; echo "$(date -u +%FT%TZ) [INFO] $*" >> "$LOG_FILE" 2>/dev/null || true; }
 warn() { echo -e "${YELLOW}[warn]${RESET}  $*"; echo "$(date -u +%FT%TZ) [WARN] $*" >> "$LOG_FILE" 2>/dev/null || true; }
