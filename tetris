@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# tetris — DeckDroid Tetris game launcher
+# Installs and launches tetris from https://github.com/samtay/tetris
+set -euo pipefail
+
+DDROID_HOME="${DDROID_HOME:-$HOME/.deckdroid}"
+TETRIS_DIR="$DDROID_HOME/games/tetris"
+TETRIS_SCRIPT="$TETRIS_DIR/tetris.sh"
+TETRIS_URL="https://raw.githubusercontent.com/samtay/tetris/main/tetris.sh"
+
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
+
+install_tetris() {
+  echo -e "${BOLD}${CYAN}Installing Tetris...${RESET}"
+  mkdir -p "$TETRIS_DIR"
+  
+  if curl -sSL "$TETRIS_URL" -o "$TETRIS_SCRIPT"; then
+    chmod +x "$TETRIS_SCRIPT"
+    echo -e "${GREEN}✓ Tetris installed successfully!${RESET}"
+    return 0
+  else
+    echo -e "${RED}Failed to download Tetris. Check your internet connection.${RESET}"
+    return 1
+  fi
+}
+
+# Check if tetris is installed
+if [ ! -f "$TETRIS_SCRIPT" ]; then
+  install_tetris || exit 1
+fi
+
+# Launch tetris
+echo -e "${CYAN}Starting Tetris...${RESET}"
+echo -e "${YELLOW}Controls: ${RESET}Arrow keys to move, Space to rotate, Backspace to exit"
+echo ""
+
+exec bash "$TETRIS_SCRIPT" "$@"

@@ -19,7 +19,7 @@ mkdir -p "$HOME_DDROID/profiles"
 mkdir -p "$DATA_DIR/data/data/com.termux/files/home/.config/fastfetch"
 
 # Tools
-TOOLS=(deckbat deckclock deckid decklocate decknote deckping decksniff deckwifi gemini ddeckconf deckdroid-doctor deckdroid-sync deckdroid-web deckdroid-plugin deckdroid-vault)
+TOOLS=(deckbat deckclock deckid decklocate decknote deckping decksniff deckwifi gemini ddeckconf deckdroid-doctor deckdroid-sync deckdroid-web deckdroid-plugin deckdroid-vault tetris)
 for t in "${TOOLS[@]}"; do
   [ -f "$t" ] && cp "$t" "$HOME_DDROID/tools/"
 done

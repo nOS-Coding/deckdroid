@@ -66,6 +66,7 @@ This wizard helps you set:
 | `deckhelp` | Help utility with usage examples |
 | `decksetup` | First-run setup wizard |
 | `deckai` | AI launcher (opencode / gemini-cli) |
+| `tetris` | Play Tetris game |
 
 **Usage examples:**
 ```bash
@@ -81,6 +82,7 @@ decktheme set nord
 decklog view tools
 deckclean check
 deckupdate check
+tetris
 ```
 
 ---

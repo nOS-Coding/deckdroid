@@ -51,8 +51,8 @@ remove_symlinks() {
   local tools=(
     "deckbat" "deckping" "deckid" "deckclock" "deckwifi" "decklocate" "decksniff"
     "decknote" "deckbrowse" "deckdisk" "decklog" "deckclean" "deckupdate" "decktheme"
-    "deckhelp" "deckmenu" "decksetup" "deckai"
-    "ddeckconf" "tdeckprof" "deckdroid-doctor" "deckdroid-sync"
+    "deckhelp" "deckmenu" "decksetup" "deckai" "tetris"
+    "ddeckconf" "ddeckprof" "deckdroid-doctor" "deckdroid-sync"
     "deckdroid-web" "deckdroid-plugin" "deckdroid-vault"
   )
   

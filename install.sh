@@ -111,7 +111,7 @@ deploy_tools() {
   local deck_tools=(
     "deckbat" "deckping" "deckid" "deckclock" "deckwifi" "decklocate" "decksniff"
     "decknote" "deckbrowse" "deckdisk" "decklog" "deckclean" "deckupdate" "decktheme"
-    "deckhelp" "deckmenu" "decksetup" "deckai"
+    "deckhelp" "deckmenu" "decksetup" "deckai" "tetris"
   )
   local repo_tools=(
     "ddeckconf" "ddeckprof" "deckdroid-doctor" "deckdroid-sync"
@@ -239,6 +239,11 @@ symlink_binaries() {
       log "  - Linked $name"
     fi
   done
+  # Symlink tetris separately (it's in games dir)
+  if [ -f "$DDROID_HOME/games/tetris/tetris.sh" ] && [ ! -e "$bin_dir/tetris" ]; then
+    ln -sf "$DDROID_HOME/tools/tetris" "$bin_dir/tetris"
+    log "  - Linked tetris"
+  fi
 }
 
 # ─── Main Execution ───────────────────────────────────────────────────────────
