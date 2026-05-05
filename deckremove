@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # deckremove — Uninstall DeckDroid completely
 # Usage: deckremove
-set -euo pipefail;
+set -eo pipefail
 
 DDROID_HOME="$HOME/.deckdroid"
 
@@ -40,41 +40,39 @@ for tool in "${tools[@]}"; do
   if [ -L "$PREFIX/bin/$tool" ]; then
     rm -f "$PREFIX/bin/$tool"
     echo -e "  ${G}✓${RESET} Removed symlink: $tool"
-  fi;
-done;
+  fi
+done
 
-# Remove DeckDroid directory;
-if [ -d "$DDROID_HOME" ]; then;
+# Remove DeckDroid directory
+if [ -d "$DDROID_HOME" ]; then
   echo -e "\n${B}${CYAN}Removing $DDROID_HOME...${RESET}"
   rm -rf "$DDROID_HOME"
-  echo -e "  ${G}✓${RESET} DeckDroid directory removed";
-else;
-  echo -e "${Y}  ~$(basename $DDROID_HOME) not found.${RESET}";
-fi;
+  echo -e "  ${G}✓${RESET} DeckDroid directory removed"
+else
+  echo -e "${Y}  ~$(basename $DDROID_HOME) not found.${RESET}"
+fi
 
-# Clean .zshrc;
+# Clean .zshrc
 echo -e "\n${B}${CYAN}Cleaning ~/.zshrc...${RESET}"
 zshrc="$HOME/.zshrc"
-if [ -f "$zshrc" ] && grep -q "DeckDroid" "$zshrc"; then;
+if [ -f "$zshrc" ] && grep -q "DeckDroid" "$zshrc"; then
   # Create backup
-  cp "$zshrc" "$zshrc.bak.$(date +%s)"; ;
+  cp "$zshrc" "$zshrc.bak.$(date +%s)"
   
   # Remove DeckDroid block
   awk '
     /^# ─── DeckDroid/ { skip=1 }
-    skip && /^# ─────────────────/ { skip=0; next }
+    skip && /^# ─────────/ { skip=0; next }
     !skip { print }
-  ' "$zshrc" > "$zshrc.tmp";
+  ' "$zshrc" > "$zshrc.tmp"
   
-  mv "$zshrc.tmp" "$zshrc";
-  echo -e "  ${G}✓${RESET} DeckDroid entries removed from .zshrc";
-  echo -e "  ${Y}Backup saved as .zshrc.bak.*${RESET}";
-else;
-  echo -e "  ${Y}No DeckDroid entries found in .zshrc${RESET}";
-fi;
+  mv "$zshrc.tmp" "$zshrc"
+  echo -e "  ${G}✓${RESET} DeckDroid entries removed from .zshrc"
+  echo -e "  ${Y}Backup saved as .zshrc.bak.*${RESET}"
+else
+  echo -e "  ${Y}No DeckDroid entries found in .zshrc${RESET}"
+fi
 
-echo -e "\n${B}${G}✓ DeckDroid has been completely uninstalled!${RESET}";
-echo -e "${Y}Note:${RESET} Python/nodejs packages installed separately are not removed.";
-echo -e "Run: ${CYAN}zsh${RESET} to start a clean shell.\n";
-BASH_EOF;
-chmod +x deckremove && echo "✓ deckremove created with y/n confirmation"
+echo -e "\n${B}${G}✓ DeckDroid has been completely uninstalled!${RESET}"
+echo -e "${Y}Note:${RESET} Python/nodejs packages installed separately are not removed."
+echo -e "Run: ${CYAN}zsh${RESET} to start a clean shell.\n"
